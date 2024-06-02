@@ -4,15 +4,24 @@ import random
 from deap import base, creator, tools, algorithms
 
 # Create the environment
-env = gym.make('Walker2d-v3')
+env = gym.make('Walker2d-v4')
 
 # Define evaluation function
 def evaluate(individual):
     observation = env.reset()
     total_reward = 0
+    done = False
+
+    print(f'Observation shape: {observation.shape}')
+
+    # Reshape the individual's genome to form a weight matrix
+    weights = np.array(individual).reshape((env.observation_space.shape[0], env.action_space.shape[0]))
+
     for _ in range(1000):  # Run the environment for 1000 steps
-        action = np.array(individual)
-        observation, reward, done, info = env.step(action)
+        # Generate the action using the weights
+        action = np.dot(observation, weights)
+        action = np.clip(action, env.action_space.low, env.action_space.high)
+        observation, reward, done, _ = env.step(action)
         total_reward += reward
         if done:
             break
@@ -24,7 +33,7 @@ creator.create('Individual', list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
 toolbox.register('attribute', random.uniform, -1.0, 1.0)
-toolbox.register('individual', tools.initRepeat, creator.Individual, toolbox.attribute, n=env.action_space.shape[0])
+toolbox.register('individual', tools.initRepeat, creator.Individual, toolbox.attribute, n=(env.observation_space.shape[0] * env.action_space.shape[0]))
 toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
 toolbox.register('mate', tools.cxBlend, alpha=0.5)

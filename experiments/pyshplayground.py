@@ -1,10 +1,15 @@
-import random
+import gym
 import numpy as np
+import random
+
 from pyshgp.gp.estimators import PushEstimator
 from pyshgp.gp.genome import GeneSpawner
 from pyshgp.gp.selection import Lexicase
 from pyshgp.gp.variation import VariationStrategy, Alternation, Genesis
 from pyshgp.gp.evaluation import DatasetEvaluator
+from pyshgp.push.interpreter import PushInterpreter
+from pyshgp.gp.population import Population
+from pyshgp.push.atoms import Input, Literal
 
 def symbolic_regression():
     # Step 2: Define the Dataset
@@ -58,4 +63,59 @@ def symbolic_regression():
     print("Test errors:")
     print(est.score(testX, testy))
 
-symbolic_regression()
+def mujoco():
+    # Create the environment
+    env = gym.make('Walker2d-v4')
+
+    def evaluate_program(program):
+        interpreter = PushInterpreter()
+        observation = env.reset()
+        total_reward = 0
+        done = False
+
+        while not done:
+            for obs in observation:
+                interpreter.push_input(obs)
+            
+            interpreter.run(program)
+            
+            action = np.array([interpreter.extract_output() for _ in range(env.action_space.shape[0])])
+            action = np.clip(action, env.action_space.low, env.action_space.high)
+            
+            observation, reward, done, _ = env.step(action)
+            total_reward += reward
+        
+        return total_reward
+
+    dataset = [(None, None)]
+    evaluator = DatasetEvaluator(evaluate_program, dataset)
+
+    atom_generators = [
+        Input(i) for i in range(env.observation_space.shape[0])
+    ] + [
+        Literal(0.0), Literal(1.0), Literal(-1.0), Literal(0.1), Literal(-0.1)
+    ] + PushInterpreter
+
+    spawner = GeneSpawner(atom_generators=atom_generators)
+
+    selector = Lexicase("lexicase")
+
+    population = Population(
+        genome_size=(10, 100),
+        evaluator=evaluator,
+        spawner=spawner,
+        selector=selector,
+        pop_size=50
+    )
+
+    generations = 40
+    for gen in range(generations):
+        print(f"Generation {gen}")
+        population.step()
+        best_individual = population.best
+        best_fitness = best_individual.fitness
+        print(f"Best fitness: {best_fitness}")
+
+    print("Evolution completed.")
+
+mujoco()

@@ -1,6 +1,6 @@
 """The **string_demo** problem solved with simulated annealing.
 
-A simple benchmark that is designed to deomonstrate a PushGP's string manipulation
+A simple benchmark that is designed to demonstrate a PushGP's string manipulation
 capabilities. The goal of the problem is as follows:
 
 Take the input string, remove the last 2 characters, and then concat this

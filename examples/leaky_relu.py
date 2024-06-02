@@ -1,4 +1,4 @@
-"""The ReLU function is a common activation function used in artifical neural netoworks.
+"""The ReLU function is a common activation function used in artifical neural networks.
 
 ```
 relu(x) = max(0, x)
