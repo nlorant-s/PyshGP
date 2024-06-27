@@ -90,7 +90,7 @@ def visualize_network(network, display='hide'):
     # Draw nodes
     for layer in node_positions:
         for (x, y) in layer:
-            circle = plt.Circle((x, y), radius=0.1, edgecolor='k', facecolor='w', lw=2)
+            circle = plt.Circle((x, y), radius=0.075, edgecolor='k', facecolor='skyblue', lw=1)
             ax.add_patch(circle)
     
     # Draw connections
@@ -98,9 +98,31 @@ def visualize_network(network, display='hide'):
         for j, start_pos in enumerate(node_positions[i]):
             for k, end_pos in enumerate(node_positions[i+1]):
                 weight = network.weights[i][k, j]
-                color = 'red' if weight < 0 else 'blue'
-                linewidth = abs(weight) * 0.3  # Scale line width by weight magnitude
+                color = 'red' if weight < 0 else 'green'
+                linewidth = abs(weight) * 1  # Scale line width by weight magnitude
                 ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], color=color, lw=linewidth)
     if display=='show':
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
+
+if __name__ == '__main__':
+    # Define the network structure
+    layer_sizes = [3, 2, 1] # to change
+
+    # Calculate the total number of weights and biases needed
+    total_weights = sum(layer_sizes[i] * layer_sizes[i-1] + layer_sizes[i] for i in range(1, len(layer_sizes)))
+    # Example flattened_weights: randomly initialized weights and biases
+    flattened_weights = np.random.randn(total_weights).tolist() # to change
+
+    # Initialize the network
+    network = SimpleNeuralNetwork(layer_sizes, flattened_weights)
+
+    # Test the feedforward function with a sample input
+    input_data = np.random.randn(3, 1)  # to change
+    output_data = network.feedforward(input_data)
+
+    print("Input Data:\n", input_data)
+    print("Output Data:\n", output_data)
+
+    # Visualize the network
+    visualize_network(network, 'show')
