@@ -2,7 +2,7 @@
 
 Neuroevolution with Push Genetic Programming in Python
 
-## Motivation
+## Motivation (incomplete)
 
 ### What is NeuroPush?
 
