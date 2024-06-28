@@ -8,8 +8,6 @@ Neuroevolution with Push Genetic Programming in Python
 
 Push is programming language that plays nice with evolutionary computing / genetic programming. It is a stack-based language that features 1 stack per data type, including code. Programs are represented by lists of instructions, which modify the values on the stacks. Instructions are executed in order.
 
-More information about PushGP can be found on the [Push Redux](https://erp12.github.io/push-redux/) the [Push Homepage](http://faculty.hampshire.edu/lspector/push.html) and the [Push Language Discourse](https://Push-language.hampshire.edu).
-
 ### Why NeuroPush?
 
 PushGP is a leading software synthesis (sometimes called "programming by example") system. It utilized stochastic (typically evolutionary) search methods to produce programs that are capable of manipulating all the common data types, control structures, and data structures. It is easily extendable to specific use cases and has seen impressive human-competitive coding results. PushGP has [discovered novel quantum computer programs](http://faculty.hampshire.edu/lspector/aqcp/) previously unknown to human programers, and has achieved human competitive results in [finding algebraic terms in the study of finite algebras](http://www.cs.bham.ac.uk/~wbl/biblio/gecco2008/docs/p1291.pdf).
@@ -41,4 +39,4 @@ Example usages of `pyshgp` can be found:
 - In the `examples/` [folder of the pyshgp Github repository](https://github.com/erp12/pyshgp/tree/master/examples).
 - In the minimal [pyshgp demo repository](https://github.com/erp12/pyshgp-demo).
 
-Additional information regarding Push can be found on the [Push Language Discourse](https://discourse.pushlanguage.org/).
+More information about PushGP can be found on the [Push Redux](https://erp12.github.io/push-redux/) the [Push Homepage](http://faculty.hampshire.edu/lspector/push.html) and the [Push Language Discourse](https://Push-language.hampshire.edu).
