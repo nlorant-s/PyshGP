@@ -6,7 +6,7 @@
 
 ### What is NeuroPush?
 
-NeuroPush is a neuroevolution project that utilizes the Push Language to evolve neural network architectures and parameters. Neural networks are mapped to Push int and float stacks, providing a versatile and extensive search space for optimization.
+NeuroPush is a neuroevolution project that utilizes the Push Language to evolve neural network architectures and parameters. Neural networks are mapped to Push int and float stacks, providing versatile and extensive search space optimization.
 
 ### Why NeuroPush?
 
