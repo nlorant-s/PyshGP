@@ -41,4 +41,4 @@ Example usages of `pyshgp` can be found:
 - In the `examples/` [folder of the pyshgp Github repository](https://github.com/erp12/pyshgp/tree/master/examples).
 - In the minimal [pyshgp demo repository](https://github.com/erp12/pyshgp-demo).
 
-Additional information regarding Push can be found on the [Push Language Discourse](https://discourse.pushlanguage.org/)
+Additional information regarding Push can be found on the [Push Language Discourse](https://discourse.pushlanguage.org/).
