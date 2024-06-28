@@ -1,6 +1,6 @@
 # NeuroPush
 
-Neuroevolution with Push Genetic Programming in Python.
+Neuroevolution with Push Genetic Programming in Python
 
 ## Motivation
 
