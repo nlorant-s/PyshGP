@@ -6,11 +6,11 @@ Neuroevolution with Push Genetic Programming in Python
 
 ### What is NeuroPush?
 
-NeuroPush is a neuroevolution project that utilizes the Push Language to evolve neural network architectures and parameters. NNs are mapped to Push int and float stacks, providing a versatile and extensive search space for optimization.
+NeuroPush is a neuroevolution project that utilizes the Push Language to evolve neural network architectures and parameters. Neural networks are mapped to Push int and float stacks, providing a versatile and extensive search space for optimization.
 
 ### Why NeuroPush?
 
-The Push Language offers state-of-the-art genetic programming capabilities. It utilizes stochastic (typically evolutionary) search methods to produce programs that are capable of manipulating all the common data types, control structures, and data structures. It is easily extendable to specific use cases and has seen impressive human-competitive coding results. PushGP has [discovered novel quantum computer programs](http://faculty.hampshire.edu/lspector/aqcp/) previously unknown to human programmers, and has achieved human competitive results in [finding algebraic terms in the study of finite algebras](http://www.cs.bham.ac.uk/~wbl/biblio/gecco2008/docs/p1291.pdf). PushGP does not optimize a set of numeric parameters using a gradient, but rather attempts to intelligently search the space of programs. The result is a system where the primary output is a program written in the Turing complete Push language. Utilizing one of the most powerful "general program synthesis" frameworks proves to be advantageous for neuroevolution.
+The Push Language offers state-of-the-art genetic programming capabilities. It utilizes stochastic (typically evolutionary) search methods to produce programs that are capable of manipulating all the common data types, control structures, and data structures. It is easily extendable to specific use cases and has seen impressive human-competitive coding results. PushGP has [discovered novel quantum computer programs](http://faculty.hampshire.edu/lspector/aqcp/) previously unknown to human programmers, and has achieved human competitive results in [finding algebraic terms in the study of finite algebras](http://www.cs.bham.ac.uk/~wbl/biblio/gecco2008/docs/p1291.pdf). PushGP does not optimize a set of numeric parameters using a gradient, but rather attempts to intelligently search the space of programs. The result is a system where the primary output is a program written in the Turing complete Push language. Utilizing one of the most powerful "general program synthesis" frameworks may prove to be advantageous for neuroevolution.
 
 ### Goals of NeuroPush
 
