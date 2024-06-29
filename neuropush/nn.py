@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class SimpleNeuralNetwork:
+class SimpleNeuralNetwork: # needs to return score 0-1
     def __init__(self, layer_sizes, flattened_weights):
         """
         Initialize the neural network with given layer sizes and flattened weights.
