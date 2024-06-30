@@ -1,3 +1,9 @@
+# TO DO:
+# fix false attributes and methods
+# adjust gens and pop size
+# determine input data & fitness function
+# connect to nn.py
+
 from pyshgp.gp.estimators import PushEstimator
 from pyshgp.gp.genome import GeneSpawner
 from pyshgp.push.instruction_set import InstructionSet
@@ -100,5 +106,3 @@ print(f"  Error: {np.sum(best_individual.error_vector)}")
 interpreter = PushInterpreter(instruction_set)
 program_output = interpreter.run(best_individual.program, inputs=X[0].tolist())
 print(f"\nProgram output for first input: {program_output}")
-
-# You can now use the best individual as needed, e.g., configure it as a NN for final testing

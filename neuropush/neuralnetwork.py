@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class SimpleNeuralNetwork: # needs to return score 0-1
+class NeuralNetwork: # needs to return score 0-1
     def __init__(self, layer_sizes, flattened_weights):
         """
         Initialize the neural network with given layer sizes and flattened weights.
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     flattened_weights = np.random.randn(num_weights).tolist() # WILL BE CHANGED TO FLOAT STACK
 
     # Initialize the network
-    network = SimpleNeuralNetwork(layer_sizes, flattened_weights)
+    network = NeuralNetwork(layer_sizes, flattened_weights)
 
     # Test the feedforward function with a sample input
     input_data = np.random.randn(3, 1)  # to change
