@@ -1,8 +1,7 @@
 # TO DO:
-# fix false attributes and methods
-# adjust gens and pop size
-# determine input data & fitness function
-# connect to nn.py
+# fix false attributes and methods (get running)
+# determine input data & fitness function (start with XOR)
+# connect to nn.py and ensure individual fitness evals
 
 from pyshgp.gp.estimators import PushEstimator
 from pyshgp.gp.genome import GeneSpawner
@@ -54,14 +53,14 @@ search_config = SearchConfiguration(
     signature=None,  # We'll set this later
     evaluator=None,  # We're not using the built-in evaluator
     spawner=spawner,
-    population_size=100,
-    max_generations=50,
+    population_size=100, # to adjust
+    max_generations=50, # to adjust
     initial_genome_size=(10, 50),
     simplification_steps=500,
     error_threshold=0.0,
     selection="lexicase",
-    variation="umad",
-    push_config=push_config
+    variation="umad", # does this work?
+    push_config=push_config # does this work?
 )
 
 # Create variation operator
