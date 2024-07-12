@@ -31,30 +31,12 @@ class NeuralNetwork: # needs to return score 0-1
             self.biases.append(bias_vector)
     
     def relu(self, z):
-        """
-        Apply ReLU activation function.
-
-        Args:
-            z (np.ndarray): Input array.
-
-        Returns:
-            np.ndarray: Output after applying ReLU.
-        """
         return np.maximum(0, z)
     
     def relu_derivative(self, z):
-        """
-        Compute the derivative of ReLU activation function.
-
-        Args:
-            z (np.ndarray): Input array.
-
-        Returns:
-            np.ndarray: Derivative of ReLU.
-        """
         return (z > 0).astype(float)
     
-    def feedforward(self, a):
+    def predict(self, a):
         """
         Perform a feedforward operation through the network.
 
@@ -64,9 +46,12 @@ class NeuralNetwork: # needs to return score 0-1
         Returns:
             np.ndarray: Output of the network.
         """
+        if a.ndim == 1:
+            a = a.reshape(-1, 1)
+
         for weight, bias in zip(self.weights, self.biases):
             a = self.relu(np.dot(weight, a) + bias)
-        return a
+        return a.T
 
 def visualize_network(network, display='hide'):
     layer_sizes = network.layer_sizes
@@ -113,19 +98,16 @@ def visualize_network(network, display='hide'):
         plt.tight_layout()
         plt.show()
 
-if __name__ == '__main__':
-    # Define the network structure | this will change to be a list of the individials int stack
-    # Define the input size
-    input_size = 3
+input_size = 4
+output_size = 1
 
-    # Generate random layer sizes
+if __name__ == '__main__':
     num_hidden_layers = np.random.randint(1, 5)  # Random number of hidden layers (1 to 4)
     hidden_layer_sizes = [np.random.randint(2, 10) for _ in range(num_hidden_layers)]  # Random size for each hidden layer
-    layer_sizes = [input_size] + hidden_layer_sizes + [1]  # Input layer + hidden layers + output layer
+    layer_sizes = [input_size] + hidden_layer_sizes + [output_size]  # Input layer + hidden layers + output layer
     
     print("Layer Sizes:", layer_sizes)
 
-    # Calculate the total number of weights and biases needed
     num_weights = sum(layer_sizes[i] * layer_sizes[i-1] + layer_sizes[i] for i in range(1, len(layer_sizes)))
 
     # Example flattened_weights: randomly initialized weights and biases
@@ -134,9 +116,9 @@ if __name__ == '__main__':
     # Initialize the network
     network = NeuralNetwork(layer_sizes, flattened_weights)
 
-    # Test the feedforward function with a sample input
-    input_data = np.random.randn(3, 1)  # to change
-    output_data = network.feedforward(input_data)
+    # Test the predict function with 4 bit input
+    input_data = np.random.randint(0, 2, (input_size, 1))
+    output_data = network.predict(input_data)
 
     print("Input:\n", input_data)
     print("Output:\n", output_data)
