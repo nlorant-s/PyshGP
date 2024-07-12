@@ -1,9 +1,3 @@
-# TO DO:
-# fix false attributes and methods (get running)
-# fitness function: XOR, then ARC-AGI
-# connect to nn.py and ensure individual fitness evals
-# log all individuals (architecture, weights, & fitness)
-
 from pyshgp.gp.genome import GeneSpawner
 from pyshgp.push.instruction_set import InstructionSet
 from pyshgp.push.type_library import PushTypeLibrary
