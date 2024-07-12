@@ -1,4 +1,5 @@
-# NeuroPush: A Competitive Neuroevolution Framework
+# NeuroPush
+A Competitive Neuroevolution Framework
 
 ## Motivation
 
