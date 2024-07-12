@@ -13,7 +13,7 @@ from pyshgp.push.config import PushConfig
 from pyshgp.gp.estimators import PushEstimator
 from pyshgp.push.interpreter import PushInterpreter
 
-from neural_network import NeuralNetwork, input_size, output_size
+from neural_network import NeuralNetwork, visualize_network, input_size, output_size
 import numpy as np
 import random
 from multiprocessing import freeze_support
@@ -31,7 +31,7 @@ class CustomSearch(SearchAlgorithm):
         return self.population
 
 MIN_LAYER_SIZE = 1
-MAX_LAYER_SIZE = 256
+MAX_LAYER_SIZE = 64
 MIN_FLOAT_VALUE = -1.0
 MAX_FLOAT_VALUE = 1.0
 
@@ -50,8 +50,45 @@ def custom_spawn_genome(num_layers, num_floats):
     for _ in range(num_floats):
         genome.append(weights_generator())
     return genome
+    # Function to interpret a genome as a neural network architecture
+def genome_extractor(genome):
+    architecture = []
+    weights = []
+    for gene in genome:
+        if isinstance(gene, Literal):
+            if gene.push_type == PushInt:
+                architecture.append(gene.value)
+            elif gene.push_type == PushFloat:
+                weights.append(gene.value)
+    return architecture, weights
+
+def display_genome(genome):
+    int_values = []
+    float_values = []
+    for gene in genome:
+        if isinstance(gene, Literal):
+            if gene.push_type == PushInt:
+                int_values.append(str(gene.value))
+            elif gene.push_type == PushFloat:
+                float_values.append(f"{gene.value:.4f}")
+    
+    return f"\nInts: [{', '.join(int_values)}]\nFloats: [{', '.join(float_values)}]"
 
 def main():
+    # Generate XOR data
+    X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
+                  [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
+                  [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1],
+                  [1, 1, 0, 0], [1, 1, 0, 1], [1, 1, 1, 0], [1, 1, 1, 1]])
+    y = np.array([[0], [1], [1], [0], [1], [0], [0], [1],
+                  [1], [0], [0], [1], [0], [1], [1], [0]])
+
+    def fitness_eval(architecture, weights):
+        all_layers = [input_size] + architecture + [output_size]
+        network = NeuralNetwork(all_layers, weights)
+        visualization = visualize_network(network, 'show')
+        return visualization
+
     # Initialize PyshGP components
     instruction_set = InstructionSet().register_core()
 
@@ -68,44 +105,9 @@ def main():
         erc_generators=[layer_size_generator, weights_generator],
     )
 
-    # Function to interpret a genome as a neural network architecture
-    def genome_extractor(genome):
-        architecture = []
-        weights = []
-        for gene in genome:
-            if isinstance(gene, Literal):
-                if gene.push_type == PushInt:
-                    architecture.append(gene.value)
-                elif gene.push_type == PushFloat:
-                    weights.append(gene.value)
-        return architecture, weights
-
-    def fitness_eval(individual, X, y):
-        architecture, weights = genome_extractor(genome)
-        network = NeuralNetwork(architecture, weights)
-        # print("ARCHITECTURE:", architecture, "WEIGHTS:", weights)
-        predictions = network.predict(X)
-        return np.mean((predictions - y) ** 2)
-
-    def display_genome(genome):
-        int_values = []
-        float_values = []
-        for gene in genome:
-            if isinstance(gene, Literal):
-                if gene.push_type == PushInt:
-                    int_values.append(str(gene.value))
-                elif gene.push_type == PushFloat:
-                    float_values.append(f"{gene.value:.4f}")
-        
-        return f"\nInts: [{', '.join(int_values)}]\nFloats: [{', '.join(float_values)}]"
-
-    # Generate some dummy data for this example
-    X = np.random.rand(100, 1)
-    y = X * 2 + 1 + np.random.normal(0, 0.1, (100, 1))
-
     NUM_LAYERS = np.random.randint(1, 5)
     # NUM_WEIGHTS = MAX_LAYER_SIZE**2 * 3 + MAX_LAYER_SIZE # need to solve this
-    NUM_WEIGHTS = 20
+    NUM_WEIGHTS = np.random.randint(1, 100)
 
     # Create search configuration
     search_config = SearchConfiguration(
@@ -114,7 +116,7 @@ def main():
         spawner=spawner,
         population_size=3, # to adjust
         max_generations=50, # to adjust
-        initial_genome_size=(1, 3),
+        initial_genome_size=(10, 100),
         simplification_steps=0,
         error_threshold=0.0,
         selection="lexicase",
