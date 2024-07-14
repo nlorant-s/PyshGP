@@ -108,6 +108,9 @@ def display_genome(genome):
     return f"\nLayers: [{', '.join(int_values)}]\nnum weights: {len(', '.join(float_values))}"
 
 def main():
+    print_genomes = False
+    show_network = False
+
     # Generate XOR data
     X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
                   [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
@@ -120,7 +123,8 @@ def main():
         try:
             all_layers = [input_size] + architecture + [output_size]
             network = NeuralNetwork(all_layers, weights)
-            visualize_network(network, 'hide')
+            if show_network:
+                visualize_network(network, 'show')
             predictions = network.predict(X)
             mse = np.mean((predictions - y) ** 2)
             return np.array([mse])  # Return as a 1D numpy array with one element
@@ -153,8 +157,8 @@ def main():
         signature=None,  # We'll set this later
         evaluator=None,  # We're not using the built-in evaluator
         spawner=spawner,
-        population_size=5, # to adjust
-        max_generations=5, # to adjust
+        population_size=200, # to adjust
+        max_generations=30, # to adjust
         initial_genome_size=(TOTAL_GENES, TOTAL_GENES + 1),
         simplification_steps=0,
         error_threshold=0.0,
@@ -186,21 +190,26 @@ def main():
     initial_population = []
     
     def spawn_eval():
+        nonlocal initial_population
+        initial_population = []  # Reset the initial population
+
         # Spawn initial population
         for _ in range(search_config.population_size):
             HIDDEN_LAYERS = np.random.randint(1, MAX_HIDDEN_LAYERS + 1)
             genome = custom_spawn_genome(HIDDEN_LAYERS, NUM_WEIGHTS)
-            print("\nGENOME:", display_genome(genome))
+            if print_genomes:
+                print("\nGENOME:", display_genome(genome))
             individual = Individual(genome, search_config.signature)
             initial_population.append(individual)
+
+        custom_search.population = Population(initial_population)
+
         # Evaluate each individual
         for individual in custom_search.population:
             architecture, weights = genome_extractor(individual.genome)
             error = fitness_eval(architecture, weights, X, y)
-            # print(f"Error: {error}") # to log error
             individual.error_vector = np.array([error])
-
-    custom_search.population = Population(initial_population)
+            # print(f"Error Vector: {individual.error_vector}") # to log error vector
 
     # Evolution loop
     for generation in range(search_config.max_generations):
@@ -211,7 +220,7 @@ def main():
             evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
             if evaluated_individuals:
                 print(f"  Median error: {np.median([ind.total_error for ind in evaluated_individuals])}")
-                print(f"  Best error: {min(ind.total_error for ind in evaluated_individuals)}")
+                print(f"  Best error: {min(ind.total_error for ind in evaluated_individuals):.4f}")
                 best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
                 best_arch, best_params = genome_extractor(best_individual.genome)
                 print(f"  Best architecture: {input_size, best_arch, output_size}\n")
