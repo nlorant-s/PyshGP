@@ -9,6 +9,7 @@ from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.gp.variation import LiteralMutation, VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Genesis, Cloning
 from neural_network import NeuralNetwork, visualize_network, input_size, output_size
+from floatmutation import FloatMutation
 import numpy as np
 import random
 from multiprocessing import freeze_support
@@ -234,7 +235,7 @@ def main():
         variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=5), 0.3)
         
         # Literal mutation (for fine-tuning weights)
-        # variation_strategy.add(LiteralMutation(push_type=PushFloat, rate=0.1), 0.2)
+        variation_strategy.add(FloatMutation(rate=0.1, std_dev=0.1), 0.2)
         
         # Occasional genome reset (for maintaining diversity)
         variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.05)
@@ -302,19 +303,19 @@ def main():
             print("  No individuals in population!")
 
     # Get the best individual from the final population
-    if len(custom_search.population) > 0:
-        evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
-        if evaluated_individuals:
-            best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
-            best_architecture, best_params = genome_extractor(best_individual.genome)
-            print("\nBest architecture:")
-            print(f"  Hidden layers: {best_architecture}")
-            print(f"  Weights: {len(best_params)}")  # Print first 3 float params
-            print(f"  Error: {best_individual.total_error:.4f}")
-        else:
-            print("\nNo evaluated individuals in final population!")
-    else:
-        print("\nNo individuals in final population!")
+    # if len(custom_search.population) > 0:
+    #     evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
+    #     if evaluated_individuals:
+    #         best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
+    #         best_architecture, best_params = genome_extractor(best_individual.genome)
+    #         print(f"Generation {max_generations} best architecture:")
+    #         print(f"  Hidden layers: {best_architecture}")
+    #         print(f"  Weights: {len(best_params)}")  # Print first 3 float params
+    #         print(f"  Error: {best_individual.total_error:.4f}")
+    #     else:
+    #         print("\nNo evaluated individuals in final population!")
+    # else:
+    #     print("\nNo individuals in final population!")
 
 if __name__ == '__main__':
     from multiprocessing import freeze_support
