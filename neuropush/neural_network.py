@@ -1,21 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class NeuralNetwork: # needs to return score 0-1
+class NeuralNetwork:
     def __init__(self, layer_sizes, flattened_weights):
-        """
-        Initialize the neural network with given layer sizes and flattened weights.
-
-        Args:
-            layer_sizes (list): List of integers representing the number of neurons in each layer.
-            flattened_weights (list): List of weights and biases flattened into a single list.
-        """
         self.layer_sizes = layer_sizes
         self.num_layers = len(layer_sizes)
         self.weights = []
         self.biases = []
         
-        # Unflatten weights and biases from the flat_weights list
         index = 0
         for i in range(1, self.num_layers):
             weight_matrix_size = layer_sizes[i] * layer_sizes[i-1]
@@ -33,68 +25,63 @@ class NeuralNetwork: # needs to return score 0-1
     def relu(self, z):
         return np.maximum(0, z)
     
-    def relu_derivative(self, z):
-        return (z > 0).astype(float)
-    
-    def predict(self, a):
+    def predict(self, X):
         """
         Perform a feedforward operation through the network.
 
         Args:
-            a (np.ndarray): Input array.
+            X (np.ndarray): Input array of shape (n_samples, n_features).
 
         Returns:
-            np.ndarray: Output of the network.
+            np.ndarray: Output of the network with shape (n_samples, n_outputs).
         """
-        if a.ndim == 1:
-            a = a.reshape(-1, 1)
-
+        a = X
         for weight, bias in zip(self.weights, self.biases):
-            a = self.relu(np.dot(weight, a) + bias)
-        return a.T
+            a = self.relu(np.dot(a, weight.T) + bias.T)
+        return a
 
 def visualize_network(network, display='hide'):
-    layer_sizes = network.layer_sizes
-    fig, ax = plt.subplots()
-    
-    # Set subplot parameters to remove padding
-    plt.subplots_adjust(left=0, bottom=0, right=1, top=1)
-    
-    ax.axis('off')
-    
-    # Calculate the maximum layer size for scaling
-    max_layer_size = max(layer_sizes)
-    
-    node_positions = []
-    for i, layer_size in enumerate(layer_sizes):
-        x = np.full(layer_size, i)
-        y = np.linspace(0, 1, layer_size) * (layer_size / max_layer_size)
-        y += (1 - (layer_size / max_layer_size)) / 2  # Center the layer vertically
-        node_positions.append(list(zip(x, y)))
-    
-    # Draw nodes
-    for layer in node_positions:
-        for (x, y) in layer:
-            circle = plt.Circle((x, y), radius=0.04, edgecolor='k', facecolor='k', lw=1)
-            ax.add_patch(circle)
-    
-    # Draw connections
-    for i in range(len(network.weights)):
-        for j, start_pos in enumerate(node_positions[i]):
-            for k, end_pos in enumerate(node_positions[i+1]):
-                weight = network.weights[i][k, j]
-                color = 'red' if weight < 0 else 'green'
-                linewidth = 0.2 + abs(weight) # Scale linewidth for better visibility
-                ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], color=color, lw=linewidth, alpha=0.6)
-    
-    # Set plot limits with some padding
-    ax.set_xlim(-0.5, len(layer_sizes) - 0.5)
-    ax.set_ylim(-0.1, 1.1)
-    
-    # Ensure the aspect ratio is appropriate for the network structure
-    ax.set_aspect('equal', adjustable='box')
-    
     if display == 'show':
+        layer_sizes = network.layer_sizes
+        fig, ax = plt.subplots()
+        
+        # Set subplot parameters to remove padding
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=1)
+        
+        ax.axis('off')
+        
+        # Calculate the maximum layer size for scaling
+        max_layer_size = max(layer_sizes)
+        
+        node_positions = []
+        for i, layer_size in enumerate(layer_sizes):
+            x = np.full(layer_size, i)
+            y = np.linspace(0, 1, layer_size) * (layer_size / max_layer_size)
+            y += (1 - (layer_size / max_layer_size)) / 2  # Center the layer vertically
+            node_positions.append(list(zip(x, y)))
+        
+        # Draw nodes
+        for layer in node_positions:
+            for (x, y) in layer:
+                circle = plt.Circle((x, y), radius=0.04, edgecolor='k', facecolor='k', lw=1)
+                ax.add_patch(circle)
+        
+        # Draw connections
+        for i in range(len(network.weights)):
+            for j, start_pos in enumerate(node_positions[i]):
+                for k, end_pos in enumerate(node_positions[i+1]):
+                    weight = network.weights[i][k, j]
+                    color = 'red' if weight < 0 else 'green'
+                    linewidth = 0.2 + abs(weight) # Scale linewidth for better visibility
+                    ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], color=color, lw=linewidth, alpha=0.6)
+        
+        # Set plot limits with some padding
+        ax.set_xlim(-0.5, len(layer_sizes) - 0.5)
+        ax.set_ylim(-0.1, 1.1)
+        
+        # Ensure the aspect ratio is appropriate for the network structure
+        ax.set_aspect('equal', adjustable='box')
+        
         plt.tight_layout()
         plt.show()
 
