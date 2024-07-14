@@ -6,7 +6,7 @@ from pyshgp.push.types import PushFloat, PushInt
 from pyshgp.gp.individual import Individual
 from pyshgp.gp.population import Population
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
-from pyshgp.gp.selection import Lexicase
+from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.gp.variation import LiteralMutation, VariationOperator, VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Genesis
 
 from pyshgp.push.config import PushConfig
@@ -20,11 +20,19 @@ from multiprocessing import freeze_support
 
 class CustomSearch(SearchAlgorithm):
     def __init__(self, config, variation_strategy):
+        """
+        50% of the time, select parents using lexicase selection.
+        50% of the time, select parents using tournament selection.
+        """
         super().__init__(config)
         self.variation_strategy = variation_strategy
-        self.selector = Lexicase(epsilon=True)
+        self.lexicase_selector = Lexicase(epsilon=True)
+        self.tournament_selector = Tournament(tournament_size=7) # decrease tournament size for greater pressure
 
     def step(self):
+        """
+        Evolve the population by selecting parents and producing children.
+        """
         # Ensure we're working with a Population object
         if not isinstance(self.population, Population):
             self.population = Population(self.population)
@@ -43,9 +51,20 @@ class CustomSearch(SearchAlgorithm):
             print("Warning: No valid individuals found. Generating new random population.")
             return self.init_population()
         
-        parents = self.selector.select(valid_individuals, n=len(self.population))
-        children = []
-        for _ in range(len(self.population)):
+        # Elitism: Keep the best individual
+        best_individual = min(valid_individuals, key=lambda ind: ind.total_error)
+
+        parents_lexicase = self.lexicase_selector.select(valid_individuals, n=len(self.population)//2)
+        parents_tournament = self.tournament_selector.select(valid_individuals, n=len(self.population)//2 - 1)
+        parents = parents_lexicase + parents_tournament
+
+        # Debugging to ensure selection with respect to error vectors
+        # print("Selected parents error vectors:")
+        # for parent in parents_lexicase[:3] + parents_tournament[:2]:  # Print a few from each selection method
+        #     print(f"  {parent.error_vector:.4f}")
+        
+        children = [best_individual]
+        for _ in range(len(self.population) - 1):
             op = np.random.choice(self.variation_strategy.elements)
             child_genome = op.produce([p.genome for p in parents], self.config.spawner)
             child = Individual(child_genome, self.config.signature)
@@ -54,6 +73,9 @@ class CustomSearch(SearchAlgorithm):
         return self.population
 
     def init_population(self):
+        """
+        Initialize the population with random individuals.
+        """
         individuals = []
         for _ in range(self.config.population_size):
             genome = self.config.spawner.spawn_genome(self.config.initial_genome_size)
@@ -62,6 +84,7 @@ class CustomSearch(SearchAlgorithm):
             individuals.append(individual)
         return Population(individuals)
 
+# for neural network instantiation
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_FLOAT_VALUE = -1.0
@@ -82,7 +105,8 @@ def custom_spawn_genome(num_layers, num_floats):
     for _ in range(num_floats):
         genome.append(weights_generator())
     return genome
-    # Function to interpret a genome as a neural network architecture
+
+# interprets a genome as a neural network architecture
 def genome_extractor(genome):
     architecture = []
     weights = []
@@ -94,6 +118,7 @@ def genome_extractor(genome):
                 weights.append(gene.value)
     return architecture, weights
 
+# Display the genomes architecture and number of weights in the terminal
 def display_genome(genome):
     int_values = list(str( input_size))
     float_values = []
@@ -111,7 +136,7 @@ def main():
     print_genomes = False
     show_network = False
 
-    # Generate XOR data
+    # XOR data
     X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
                   [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
                   [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1],
@@ -126,8 +151,13 @@ def main():
             if show_network:
                 visualize_network(network, 'show')
             predictions = network.predict(X)
+
+            # Calculate mean squared error
             mse = np.mean((predictions - y) ** 2)
-            return np.array([mse])  # Return as a 1D numpy array with one element
+            # Calculate binary cross-entropy loss
+            bce = -np.mean(y * np.log(predictions) + (1 - y) * np.log(1 - predictions))
+
+            return np.array([bce])  # Return as a 1D numpy array with one element
         except Exception as e:
             print(f"Error in fitness evaluation: {str(e)}")
             return np.array([float('inf')])  # Return worst possible fitness as a 1D array
@@ -157,8 +187,8 @@ def main():
         signature=None,  # We'll set this later
         evaluator=None,  # We're not using the built-in evaluator
         spawner=spawner,
-        population_size=200, # to adjust
-        max_generations=30, # to adjust
+        population_size=500, # to adjust
+        max_generations=200, # to adjust
         initial_genome_size=(TOTAL_GENES, TOTAL_GENES + 1),
         simplification_steps=0,
         error_threshold=0.0,
@@ -209,7 +239,7 @@ def main():
             architecture, weights = genome_extractor(individual.genome)
             error = fitness_eval(architecture, weights, X, y)
             individual.error_vector = np.array([error])
-            # print(f"Error Vector: {individual.error_vector}") # to log error vector
+            # print(f"Individual's Error: {individual.error_vector}") # to log error vector
 
     # Evolution loop
     for generation in range(search_config.max_generations):
@@ -219,11 +249,12 @@ def main():
         if len(custom_search.population) > 0:
             evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
             if evaluated_individuals:
-                print(f"  Median error: {np.median([ind.total_error for ind in evaluated_individuals])}")
-                print(f"  Best error: {min(ind.total_error for ind in evaluated_individuals):.4f}")
+                print(f"  {len(evaluated_individuals)}/{len(custom_search.population)} evaluated")
+                print(f"  Median error: {np.median([ind.total_error for ind in evaluated_individuals]):.4f}")
                 best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
                 best_arch, best_params = genome_extractor(best_individual.genome)
-                print(f"  Best architecture: {input_size, best_arch, output_size}\n")
+                print(f"  Best architecture: {input_size, best_arch, output_size}")
+                print(f"    Error: {min(ind.total_error for ind in evaluated_individuals):.4f}\n")
                 # print(f"  Best weights: {best_params[:5]}...")  # Print first 5 float params
             else:
                 print("  No evaluated individuals in population!")
@@ -241,9 +272,9 @@ def main():
             best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
             best_architecture, best_params = genome_extractor(best_individual.genome)
             print("\nBest Neural Network Configuration:")
-            print(f"  Architecture: {best_architecture}")
-            print(f"  Float params: {best_params[:5]}...")  # Print first 5 float params
-            print(f"  Error: {best_individual.total_error}")
+            print(f"  Hidden layers: {best_architecture}")
+            print(f"  Weights: {best_params[:3]:.4f}...")  # Print first 5 float params
+            print(f"  Error: {best_individual.total_error:.4f}")
         else:
             print("\nNo evaluated individuals in final population!")
     else:

@@ -22,6 +22,9 @@ class NeuralNetwork:
             self.weights.append(weight_matrix)
             self.biases.append(bias_vector)
     
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
     def relu(self, z):
         return np.maximum(0, z)
     
@@ -36,8 +39,16 @@ class NeuralNetwork:
             np.ndarray: Output of the network with shape (n_samples, n_outputs).
         """
         a = X
+        ''' No last layer sigmoid
         for weight, bias in zip(self.weights, self.biases):
             a = self.relu(np.dot(a, weight.T) + bias.T)
+        '''
+        for i, (weight, bias) in enumerate(zip(self.weights, self.biases)):
+            z = np.dot(a, weight.T) + bias.T
+            if i == len(self.weights) - 1:  # Last layer
+                a = self.sigmoid(z)
+            else:
+                a = self.relu(z)
         return a
 
 def visualize_network(network, display='hide'):
