@@ -38,7 +38,10 @@ class DiscreteProbDistrib:
         self._normalize()
 
     def _normalize(self):
-        self._normalized_probabilities = np.array(self._raw_probabilities) / self._total
+        if self._total != 0:
+            self._normalized_probabilities = np.array(self._raw_probabilities) / self._total
+        else:
+            self._normalized_probabilities = np.zeros_like(self._raw_probabilities)
 
     def add(self, el, p):
         """Add an element with a relative probability."""

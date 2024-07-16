@@ -13,9 +13,10 @@ from neuromutations import FloatMutation, IntMutation, NullMutation, AdditionDel
 import numpy as np
 import random
 from datetime import datetime
+from multiprocessing import freeze_support
 
 # INITIALIZATION CONSTANTS
-population_size = 100
+population_size = 10
 max_generations = 3
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
@@ -25,7 +26,7 @@ MAX_HIDDEN_LAYERS = 3
 NUM_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
 TOTAL_GENES = MAX_HIDDEN_LAYERS + NUM_WEIGHTS
 MIN_HIDDEN_LAYERS = 0
-print_genomes = False
+print_genomes = True
 show_network = False
 input_size = 4
 output_size = 1
@@ -37,6 +38,34 @@ X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
                 [1, 1, 0, 0], [1, 1, 0, 1], [1, 1, 1, 0], [1, 1, 1, 1]])
 y = np.array([[0], [1], [1], [0], [1], [0], [0], [1],
                 [1], [0], [0], [1], [0], [1], [1], [0]])
+
+def fitness_eval(architecture, weights, X, y):
+    try:
+        all_layers = [input_size] + architecture + [output_size]
+        network = NeuralNetwork(all_layers, weights)
+        if show_network:
+            visualize_network(network, 'show')
+
+        # for i in range(len(X)):
+        #     prediction = network.predict(X[i])
+        #     # Calculate mean squared error
+        #     mse = np.mean((prediction - y[i]) ** 2)
+        #     # Calculate binary cross-entropy loss
+        #     bce = -np.mean(y[i] * np.log(prediction) + (1 - y[i]) * np.log(1 - prediction))
+
+        predictions = network.predict(X)
+
+        # Calculate mean squared error
+        mse = np.mean((predictions - y) ** 2)
+        # Calculate binary cross-entropy loss
+        bce = -np.mean(y * np.log(predictions) + (1 - y) * np.log(1 - predictions))
+
+        # Return as a 2d numpy array
+        return np.array([bce])  # Return as a 2D numpy array with one element
+
+    except Exception as e:
+        # print(f"Error in fitness evaluation: {str(e)}")
+        return None
 
 class CustomSearch(SearchAlgorithm):
     def __init__(self, config, variation_strategy):
@@ -84,19 +113,27 @@ class CustomSearch(SearchAlgorithm):
         
         children = [best_individual]
         if print_genomes:
+            print("Best individual:")
             print(print_genome(best_individual.genome))
-            print("Best individual")
 
         for _ in range(len(self.population) - 1):
             op = np.random.choice(self.variation_strategy.elements)
             num_parents = op.num_parents
             selected_parents = random.sample(parents, num_parents)
-            child_genome = op.produce([p.genome for p in selected_parents], self.config.spawner)
+            child_genome = op.produce([p.genome for p in selected_parents], self.config.spawner) # not using selected_parents
             if print_genomes:
                 print(print_genome(child_genome))
             child = Individual(child_genome, self.config.signature)
             children.append(child)
         self.population = Population(children)
+
+        for child in self.population:
+            architecture, weights = genome_extractor(child.genome)
+            error = fitness_eval(architecture, weights, X, y)
+            if error is not None:
+                child.error_vector = np.array([error])
+            else:
+                child.error_vector = None
 
         return self.population
     
@@ -123,7 +160,7 @@ def genome_extractor(genome):
     weights = []
     for gene in genome:
         if isinstance(gene, Literal):
-            if gene.push_type == PushInt and len(layers):
+            if gene.push_type == PushInt:
                 layers.append(gene.value)
             elif gene.push_type == PushFloat:
                 weights.append(gene.value)
@@ -147,7 +184,7 @@ def print_genome(genome):
     weights = {float(value) for value in float_values}
     num_weights = len(weights)
     
-    return f"\nLayers: {layers}\nweights: ({num_weights})"
+    return f"Layers: {layers}\nweights: ({num_weights})\n"
 
 def logger(logged):
     # Get current date and time
@@ -164,34 +201,8 @@ def logger(logged):
     return None
 
 def main():
-    def fitness_eval(architecture, weights, X, y):
-        try:
-            all_layers = [input_size] + architecture + [output_size]
-            network = NeuralNetwork(all_layers, weights)
-            if show_network:
-                visualize_network(network, 'show')
-
-            # for i in range(len(X)):
-            #     prediction = network.predict(X[i])
-            #     # Calculate mean squared error
-            #     mse = np.mean((prediction - y[i]) ** 2)
-            #     # Calculate binary cross-entropy loss
-            #     bce = -np.mean(y[i] * np.log(prediction) + (1 - y[i]) * np.log(1 - prediction))
-
-            predictions = network.predict(X)
-
-            # Calculate mean squared error
-            mse = np.mean((predictions - y) ** 2)
-            # Calculate binary cross-entropy loss
-            bce = -np.mean(y * np.log(predictions) + (1 - y) * np.log(1 - predictions))
-
-            # Return as a 2d numpy array
-            return np.array([bce])  # Return as a 2D numpy array with one element
-
-        except Exception as e:
-            # print(f"Error in fitness evaluation: {str(e)}")
-            return None
-
+    print("\033[1m" + "Beginning evolution" + "\033[0m")
+    print(f"Population size: {population_size}, generations: {max_generations}\n")
     # Initialize PyshGP components
     instruction_set = InstructionSet().register_core()
     type_library = PushTypeLibrary(register_core=False)
@@ -204,6 +215,31 @@ def main():
         literals=[],
         erc_generators=[layer_size_generator, weights_generator],
     )
+
+    def variation_strategy(spawner):
+        variation_strategy = VariationStrategy()
+        variation_strategy.add(NullMutation(), 1)
+        
+        # Fine-grained mutation operators
+        # variation_strategy.add(AdditionDeletionMutation(addition_rate=0.1, deletion_rate=0.1), 0.000015)
+        variation_strategy.add(AdditionMutation(addition_rate=0.01), 0.2)
+        # variation_strategy.add(DeletionMutation(deletion_rate=0.01), 0.25) # not a bad idea to track if an individual has been mutated
+        
+        # Crossover operator
+        # variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=5), 0.3)
+        
+        # Literal mutation (for fine-tuning weights and layers)
+        # variation_strategy.add(FloatMutation(rate=0.5, std_dev=0.1), 0.2)
+        # variation_strategy.add(IntMutation(rate=0.3, std_dev=1), 0.2)
+        
+
+        # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.05)
+        # variation_strategy.add(Cloning(), 0.1)
+        
+        return variation_strategy
+
+    # Create variation operator
+    variation_strategy = variation_strategy(spawner)    
 
     # Create search configuration
     search_config = SearchConfiguration(
@@ -218,42 +254,14 @@ def main():
         selection="lexicase",
     )
 
-    def variation_strategy(spawner):
-        variation_strategy = VariationStrategy()
-        
-        # Fine-grained mutation operators
-        # variation_strategy.add(AdditionDeletionMutation(addition_rate=0.1, deletion_rate=0.1), 0.000015)
-        # variation_strategy.add(AdditionMutation(addition_rate=0.01), 0.25)
-        # variation_strategy.add(DeletionMutation(deletion_rate=0.01), 0.25) # not a bad idea to track if an individual has been mutated
-        variation_strategy.add(NullMutation(), 1)
-        
-        # Crossover operator
-        # variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=5), 0.3)
-        
-        # Literal mutation (for fine-tuning weights and layers)
-        # variation_strategy.add(FloatMutation(rate=0.5, std_dev=0.1), 0.2)
-        # variation_strategy.add(IntMutation(rate=0.3, std_dev=1), 0.2)
-        
-        # Occasional genome reset (for maintaining diversity)
-        # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.05)
-        
-        # Cloning (to preserve good solutions)
-        # variation_strategy.add(Cloning(), 0.1)
-        
-        return variation_strategy
-
-    # Create variation operator
-    variation_strategy = variation_strategy(spawner)    
-
     # Create custom search
     custom_search = CustomSearch(search_config, variation_strategy)
 
     # Initialize the population
     population = []
-    
+
     def spawn_eval():
         nonlocal population
-
         if not population: # If it's the first generation, initialize the population
             population = []
             for _ in range(search_config.population_size):
@@ -279,8 +287,10 @@ def main():
                 individual.error_vector = np.array([error])
             else:
                 individual.error_vector = None
-            # print(f"Individual's Error: {individual.error_vector}") # to log error vector
-
+            # to log error vector
+        
+        gen += 1
+        
     # Evolution loop
     for generation in range(search_config.max_generations):
         spawn_eval()
@@ -302,4 +312,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # freeze_support()
     main()
