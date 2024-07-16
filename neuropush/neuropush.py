@@ -31,6 +31,9 @@ show_network = False
 input_size = 4
 output_size = 1
 
+bold = '\033[1m'
+endbold = '\033[0m'
+
 # XOR dataset
 X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
                 [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
@@ -78,6 +81,7 @@ class CustomSearch(SearchAlgorithm):
         self.variation_strategy = variation_strategy
         self.lexicase_selector = Lexicase(epsilon=True)
         self.tournament_selector = Tournament(tournament_size=7) # decrease tournament size for greater pressure
+        self.num_gen = 2
 
     def step(self):
         """
@@ -104,7 +108,7 @@ class CustomSearch(SearchAlgorithm):
         randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), NUM_WEIGHTS) for _ in range(random_size)]
         parents = parents_tournament + parents_lexicase # + randomly_generated
 
-        print(f"{len(set(id(parent) for parent in parents))} unique parents, {len(parents)} selected")
+        # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
 
         # Debugging to ensure selection with respect to error vectors
         # print("Selected parents error vectors:")
@@ -112,8 +116,13 @@ class CustomSearch(SearchAlgorithm):
         #     print(f"  {parent.error_vector:.4f}")
         
         children = [best_individual]
+
         if print_genomes:
-            print("Best individual:")
+            print(f"\n{bold}GENERATION {self.num_gen}{endbold}")
+            self.num_gen += 1
+            print("---------------------------------")
+
+            print("*last generation best individual")
             print(print_genome(best_individual.genome))
 
         for _ in range(len(self.population) - 1):
@@ -180,11 +189,11 @@ def print_genome(genome):
             elif gene.push_type == PushFloat:
                 float_values.append(f"{gene.value:.4f}")
     int_values.append(str(output_size))
-    layers = ', '.join(int_values)
+    layers = '-'.join(int_values)
     weights = {float(value) for value in float_values}
     num_weights = len(weights)
     
-    return f"Layers: {layers}\nweights: ({num_weights})\n"
+    return f"{layers}\n{num_weights}\n"
 
 def logger(logged):
     # Get current date and time
@@ -201,7 +210,7 @@ def logger(logged):
     return None
 
 def main():
-    print("\033[1m" + "Beginning evolution" + "\033[0m")
+    print(f"{bold}Beginning evolution{endbold}")
     print(f"Population size: {population_size}, generations: {max_generations}\n")
     # Initialize PyshGP components
     instruction_set = InstructionSet().register_core()
@@ -222,7 +231,7 @@ def main():
         
         # Fine-grained mutation operators
         # variation_strategy.add(AdditionDeletionMutation(addition_rate=0.1, deletion_rate=0.1), 0.000015)
-        variation_strategy.add(AdditionMutation(addition_rate=0.01), 0.2)
+        variation_strategy.add(AdditionMutation(addition_rate=0.001), 0.2)
         # variation_strategy.add(DeletionMutation(deletion_rate=0.01), 0.25) # not a bad idea to track if an individual has been mutated
         
         # Crossover operator
@@ -264,6 +273,9 @@ def main():
         nonlocal population
         if not population: # If it's the first generation, initialize the population
             population = []
+            if print_genomes:
+                print(f"{bold}GENERATION 1{endbold}")
+                print("---------------------------------")
             for _ in range(search_config.population_size):
                 HIDDEN_LAYERS = np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1)
                 # HIDDEN_LAYERS = 0
@@ -288,14 +300,12 @@ def main():
             else:
                 individual.error_vector = None
             # to log error vector
-        
-        gen += 1
-        
+                
     # Evolution loop
     for generation in range(search_config.max_generations):
         spawn_eval()
         # Print generation statistics
-        print(f"\nGeneration {generation + 1}:")
+        print(f"Generation {generation + 1} Stats:")
         if len(custom_search.population) > 0:
             evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
             if evaluated_individuals:
