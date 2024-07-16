@@ -1,32 +1,32 @@
-from pyshgp.gp.genome import GeneSpawner
+from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation
+from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
+from neural_network import NeuralNetwork, visualize_network
+from neuromutations import NullMutation, SlightMutation
 from pyshgp.push.instruction_set import InstructionSet
+from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
-from pyshgp.push.atoms import Literal
 from pyshgp.push.types import PushFloat, PushInt
 from pyshgp.gp.individual import Individual
 from pyshgp.gp.population import Population
-from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
-from pyshgp.gp.selection import Lexicase, Tournament
-from pyshgp.gp.variation import LiteralMutation, VariationOperator, VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Genesis, Cloning
-from neural_network import NeuralNetwork, visualize_network
-from neuromutations import FloatMutation, IntMutation, NullMutation, AdditionDeletionMutation
+from multiprocessing import freeze_support
+from pyshgp.gp.genome import GeneSpawner
+from pyshgp.push.atoms import Literal
+from datetime import datetime
 import numpy as np
 import random
-from datetime import datetime
-from multiprocessing import freeze_support
 
 # INITIALIZATION CONSTANTS
-population_size = 10
-max_generations = 3
+population_size = 200
+max_generations = 30
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
 MAX_WEIGHT_VALUE = 1.0
 MAX_HIDDEN_LAYERS = 3
+MIN_HIDDEN_LAYERS = 0
 NUM_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
 TOTAL_GENES = MAX_HIDDEN_LAYERS + NUM_WEIGHTS
-MIN_HIDDEN_LAYERS = 0
-print_genomes = True
+print_genomes = False
 show_network = False
 input_size = 4
 output_size = 1
@@ -90,15 +90,15 @@ class CustomSearch(SearchAlgorithm):
         # Filter out individuals with invalid error vectors
         valid_individuals = Population([ind for ind in self.population if np.isfinite(ind.error_vector).all() and len(ind.error_vector) > 0])
 
-        # Elitism: Keep the best individual
-        best_individual = min(valid_individuals, key=lambda ind: ind.total_error)
+        # Elitism: Keep the best 10%
+        best_individuals = sorted(valid_individuals, key=lambda ind: ind.total_error)[:int(len(valid_individuals) * 0.1)]
 
         # Adjust selection sizes based on the number of valid individuals
-        total_size = len(self.population)
+        total_size = len(self.population) - len(best_individuals)
         random_size = int(total_size * 0.2)  # 20% random
-        remaining_size = total_size # - random_size  # Leave room for the best individual?
+        remaining_size = total_size # - random_size
         lexicase_size = remaining_size // 2  # Split remaining evenly between lexicase and tournament
-        tournament_size = remaining_size - lexicase_size
+        tournament_size = remaining_size # - lexicase_size
 
         # downsize tournament size if necessary
         self.tournament_selector.tournament_size = min(self.tournament_selector.tournament_size, len(valid_individuals))
@@ -106,26 +106,27 @@ class CustomSearch(SearchAlgorithm):
         parents_lexicase = self.lexicase_selector.select(valid_individuals, n=lexicase_size)
         parents_tournament = self.tournament_selector.select(valid_individuals, n=tournament_size)
         randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), NUM_WEIGHTS) for _ in range(random_size)]
-        parents = parents_tournament + parents_lexicase # + randomly_generated
-
+        parents = parents_tournament # + parents_lexicase # + randomly_generated
+        
         # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
 
         # Debugging to ensure selection with respect to error vectors
         # print("Selected parents error vectors:")
         # for parent in parents_lexicase[:3] + parents_tournament[:2]:  # Print a few from each selection method
         #     print(f"  {parent.error_vector:.4f}")
-        
-        children = [best_individual]
+
+        children = best_individuals
 
         if print_genomes:
             print(f"\n{bold}GENERATION {self.num_gen}{endbold}")
             self.num_gen += 1
             print("---------------------------------")
 
-            print("*last generation best individual")
-            print(print_genome(best_individual.genome))
+            for ind in best_individuals:
+                print("*last generation best individual")
+                print(print_genome(ind.genome))
 
-        for _ in range(len(self.population) - 1):
+        for _ in range(len(self.population) - len(best_individuals)):
             op = np.random.choice(self.variation_strategy.elements)
             num_parents = op.num_parents
             selected_parents = random.sample(parents, num_parents)
@@ -134,6 +135,7 @@ class CustomSearch(SearchAlgorithm):
                 print(print_genome(child_genome))
             child = Individual(child_genome, self.config.signature)
             children.append(child)
+
         self.population = Population(children)
 
         for child in self.population:
@@ -227,22 +229,19 @@ def main():
 
     def variation_strategy(spawner):
         variation_strategy = VariationStrategy()
-        variation_strategy.add(NullMutation(), 1)
+        variation_strategy.add(NullMutation(), 0)
+        variation_strategy.add(SlightMutation(), 0)
         
         # Fine-grained mutation operators
-        # variation_strategy.add(AdditionDeletionMutation(addition_rate=0.1, deletion_rate=0.1), 0.000015)
-        variation_strategy.add(AdditionMutation(addition_rate=0.001), 0.2)
-        # variation_strategy.add(DeletionMutation(deletion_rate=0.01), 0.25) # not a bad idea to track if an individual has been mutated
-        
+        variation_strategy.add(AdditionMutation(), 0.2)
+        variation_strategy.add(DeletionMutation(), 0.2) # not a bad idea to track if an individual has been mutated
+        #  are these producing non-literal genes?
+
         # Crossover operator
-        # variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=5), 0.3)
-        
-        # Literal mutation (for fine-tuning weights and layers)
-        # variation_strategy.add(FloatMutation(rate=0.5, std_dev=0.1), 0.2)
-        # variation_strategy.add(IntMutation(rate=0.3, std_dev=1), 0.2)
+        # variation_strategy.add(Alternation(alternation_rate=0.01, alignment_deviation=5), 0.2)
         
 
-        # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.05)
+        # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.2)
         # variation_strategy.add(Cloning(), 0.1)
         
         return variation_strategy
@@ -269,7 +268,7 @@ def main():
     # Initialize the population
     population = []
 
-    def spawn_eval():
+    def evolve():
         nonlocal population
         if not population: # If it's the first generation, initialize the population
             population = []
@@ -289,7 +288,6 @@ def main():
             population = custom_search.step()
 
         custom_search.population = Population(population)
-
         # Evaluate each individual
         for individual in custom_search.population:
             architecture, weights = genome_extractor(individual.genome)
@@ -303,18 +301,18 @@ def main():
                 
     # Evolution loop
     for generation in range(search_config.max_generations):
-        spawn_eval()
+        evolve()
         # Print generation statistics
         print(f"Generation {generation + 1} Stats:")
         if len(custom_search.population) > 0:
             evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
             if evaluated_individuals:
                 print(f"  Evaluated: {len(evaluated_individuals)}/{len(custom_search.population)}")
-                print(f"  Median error: {np.median([ind.total_error for ind in evaluated_individuals]):.2f}")
+                print(f"  Median error: {bold}{np.median([ind.total_error for ind in evaluated_individuals]):.2f}{endbold}")
                 best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
                 layers, _ = genome_extractor(best_individual.genome)
                 print(f"  Best architecture: {input_size} {layers} {output_size}")
-                print(f"    Error: {min(ind.total_error for ind in evaluated_individuals):.2f}\n")
+                print(f"    Error: {bold}{min(ind.total_error for ind in evaluated_individuals):.2f}{endbold}\n")
             else:
                 print("  No evaluated individuals in population!")
         else:
@@ -322,5 +320,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # freeze_support()
+    freeze_support()
     main()
