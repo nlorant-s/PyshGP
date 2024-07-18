@@ -14,17 +14,16 @@ from pyshgp.push.atoms import Literal
 from datetime import datetime
 import numpy as np
 import random
-import shutil
 import os
 
 # INITIALIZATION CONSTANTS
-population_size = 100
-max_generations = 10
+population_size = 300
+max_generations = 20
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
 MAX_WEIGHT_VALUE = 1.0
-MAX_HIDDEN_LAYERS = 3
+MAX_HIDDEN_LAYERS = 0
 MIN_HIDDEN_LAYERS = 0
 MAX_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
 TOTAL_GENES = MAX_HIDDEN_LAYERS + MAX_WEIGHTS
@@ -77,8 +76,8 @@ def fitness_eval(architecture, weights, X, y):
 def variation_strategy(spawner):
     variation_strategy = VariationStrategy()
     # variation_strategy.add(NullMutation(), 0.9)
-    variation_strategy.add(IntReplacement(rate=0.5), 1)
-    variation_strategy.add(FloatReplacement(rate=0.5), 1)
+    variation_strategy.add(IntReplacement(rate=1), 1)
+    variation_strategy.add(FloatReplacement(rate=1), 1)
     
     return variation_strategy
 
@@ -92,7 +91,7 @@ class CustomSearch(SearchAlgorithm):
         super().__init__(config)
         self.variation_strategy = variation_strategy
         self.lexicase_selector = Lexicase(epsilon=True)
-        self.tournament_selector = Tournament(tournament_size=7) # decrease tournament size for greater pressure
+        self.tournament_selector = Tournament(tournament_size=3) # decrease tournament size for greater pressure
         self.num_gen = 2
 
     def step(self):
@@ -109,8 +108,8 @@ class CustomSearch(SearchAlgorithm):
         total_size = len(self.population) - len(best_individuals)
         random_size = int(total_size * 0.2)  # 20% random
         remaining_size = total_size # - random_size
-        lexicase_size = remaining_size # // 2  # Split remaining evenly between lexicase and tournament
-        tournament_size = remaining_size # - lexicase_size
+        lexicase_size = remaining_size // 2  # Split remaining evenly between lexicase and tournament
+        tournament_size = remaining_size - lexicase_size
 
         # downsize tournament size if necessary
         self.tournament_selector.tournament_size = min(self.tournament_selector.tournament_size, len(valid_individuals))
@@ -118,7 +117,7 @@ class CustomSearch(SearchAlgorithm):
         parents_lexicase = self.lexicase_selector.select(valid_individuals, n=lexicase_size)
         parents_tournament = self.tournament_selector.select(valid_individuals, n=tournament_size)
         randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), MAX_WEIGHTS) for _ in range(random_size)]
-        parents = parents_lexicase
+        parents = parents_lexicase + parents_tournament
         
         # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
 
@@ -216,8 +215,6 @@ def logger(layers, weights, error, pop_size, generations):
     filename = os.path.join(script_dir, "logs.txt")
 
     layers = [input_size] + layers + [output_size]
-
-    print(f"Best individual saved to {filename}")
     
     with open(filename, "a") as file:
         file.write(f"{current_time}\n")
@@ -318,14 +315,14 @@ def main():
                     # Calculate diversity
                     unique_genomes = set(genome_to_hashable(ind.genome) for ind in evaluated_individuals)
                     diversity = len(unique_genomes)
-                    print(f"  Diversity: {diversity}/{len(evaluated_individuals)}")
-                    print(f"  Mdn error: {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
                     best_individual = min(evaluated_individuals, key=lambda ind: np.mean(ind.error_vector))
                     best_layers, best_weights = genome_extractor(best_individual.genome)
                     best_individuals = sorted(evaluated_individuals, key=lambda ind: ind.total_error)[:int(len(evaluated_individuals) * 0.1)]
-                    print(f"  Elite M error: {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
-                    print(f"  Best individual: {input_size, best_layers, output_size}")
-                    print(f"    M error: {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
+                    print(f"  Diversity        {diversity}/{len(evaluated_individuals)}")
+                    print(f"  Best             {input_size} {best_layers} {output_size}")
+                    print(f"  Median error     {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
+                    print(f"  Elite error      {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
+                    print(f"  Best error       {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
                 else:
                     print("  No evaluated individuals in population!")
             else:
@@ -333,6 +330,12 @@ def main():
 
             if generation == search_config.max_generations - 1:
                 logger(best_layers, best_weights, best_individual.error_vector, len(evaluated_individuals), generation + 1)
+                nn = NeuralNetwork([input_size] + best_layers + [output_size], best_weights)
+                visualize_network(nn, 'show')
+                # for i in range(len(X)):
+                    # print(f"Input: {X[i]} | Target: {y[i]} | Prediction: {nn.predict(X[i])} | Error: {best_individual.error_vector[i]}")
+                print(f"{bold}Accuracy: {np.mean((nn.predict(X) > 0.5) == y) * 100}%{endbold}")
+
         except Exception as e:
             print(f"Error in generation {generation + 1}: {str(e)}")
             continue
