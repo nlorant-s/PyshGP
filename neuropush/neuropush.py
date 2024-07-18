@@ -1,7 +1,7 @@
 from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Cloning
+from neuromutations import NullMutation, FloatReplacement, IntReplacement
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
 from neural_network import NeuralNetwork, visualize_network
-from neuromutations import NullMutation, FloatReplacement, IntReplacement
 from pyshgp.push.instruction_set import InstructionSet
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
@@ -12,9 +12,10 @@ from multiprocessing import freeze_support
 from pyshgp.gp.genome import GeneSpawner
 from pyshgp.push.atoms import Literal
 from datetime import datetime
-import shutil
 import numpy as np
 import random
+import shutil
+import os
 
 # INITIALIZATION CONSTANTS
 population_size = 100
@@ -210,15 +211,20 @@ def print_genome(genome):
     return f"{layers}\n{num_weights}\n"
 
 def logger(layers, weights, error, pop_size, generations):
-    current_time = datetime.now().strftime("%m%d%Y-%H%M")
-    filename = "logs.txt"
+    current_time = datetime.now().strftime("%m/%d/%Y at %H:%M")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(script_dir, "logs.txt")
+
+    layers = [input_size] + layers + [output_size]
+
+    print(f"Best individual saved to {filename}")
     
     with open(filename, "a") as file:
-        file.write(f"Best Individual (population size: {pop_size}, generations: {generations})\n")
         file.write(f"{current_time}\n")
+        file.write(f"Best Individual (population size: {pop_size}, generations: {generations})\n")
         file.write(f"{layers}\n")
-        file.write(f"{weights}\n")
-        file.write(f"{error}\n\n")
+        file.write(f"{error}\n")
+        file.write(f"{weights}\n\n")
     
     print(f"{bold}Evolution complete!{endbold}")
 
