@@ -50,25 +50,25 @@ class NeuralNetwork:
             X (np.ndarray): Input array of shape (n_samples, n_features).
 
         Returns:
-            np.ndarray: Output of the network with shape (n_samples, n_outputs).
+            np.ndarray: Binary predictions of shape (n_samples, 1).
         """
-        a = X
-
-        ''' No last layer sigmoid
-        for weight, bias in zip(self.weights, self.biases):
-            a = self.relu(np.dot(a, weight.T) + bias.T)
-        '''
         try:
+            X = np.atleast_2d(X)
+            a = X
             for i, (weight, bias) in enumerate(zip(self.weights, self.biases)):
                 z = np.dot(a, weight.T) + bias.T
                 if i == len(self.weights) - 1:  # Last layer
                     a = self.sigmoid(z)
                 else:
                     a = self.relu(z)
-            return a
+            
+            # Ensure the output is of shape (n_samples, 1) and contains only 0 and 1
+            binary_output = (a >= 0.5).astype(int)
+            return binary_output.reshape(-1, 1)
+        
         except Exception as e:
             print("predict() error:", e)
-            return None
+            return np.zeros((X.shape[0], 1))  # Return a zero array of correct shape instead of None
 
 def visualize_network(network, display='hide'):
     if display == 'show':

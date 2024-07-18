@@ -12,12 +12,13 @@ from multiprocessing import freeze_support
 from pyshgp.gp.genome import GeneSpawner
 from pyshgp.push.atoms import Literal
 from datetime import datetime
+import shutil
 import numpy as np
 import random
 
 # INITIALIZATION CONSTANTS
-population_size = 600
-max_generations = 30
+population_size = 100
+max_generations = 10
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
@@ -54,19 +55,23 @@ def fitness_eval(architecture, weights, X, y):
 
         predictions = network.predict(X)
 
+        # Ensure predictions and y have the same shape
+        predictions = predictions.reshape(-1, 1)
+        y = y.reshape(-1, 1)
+
         # Calculate individual errors for each data point
         individual_errors = []
         for i in range(len(X)):
-            # Calculate binary cross-entropy loss for each data point
-            bce = -y[i] * np.log(predictions[i]) - (1 - y[i]) * np.log(1 - predictions[i])
-            individual_errors.append(bce)
+            # Use mean squared error instead of binary cross-entropy
+            mse = np.mean((predictions[i] - y[i])**2)
+            individual_errors.append(mse)
 
         # Return as a numpy array
         return np.array(individual_errors)
 
     except Exception as e:
         print(f"Error in fitness evaluation: {str(e)}")
-        return None
+        return np.full(len(X), np.inf)  # Return an array of infinity values instead of None
 
 def variation_strategy(spawner):
     variation_strategy = VariationStrategy()
@@ -204,18 +209,19 @@ def print_genome(genome):
     
     return f"{layers}\n{num_weights}\n"
 
-def logger(logged):
-    # Get current date and time
+def logger(layers, weights, error, pop_size, generations):
     current_time = datetime.now().strftime("%m%d%Y-%H%M")
-    
-    # Create a filename with the current date and time
-    filename = f"{current_time}.txt"
-    print(f"Logging to {filename}")
+    filename = "logs.txt"
     
     with open(filename, "a") as file:
-        file.write(logged)
-        file.save(f'/logs/{filename}')
+        file.write(f"Best Individual (population size: {pop_size}, generations: {generations})\n")
+        file.write(f"{current_time}\n")
+        file.write(f"{layers}\n")
+        file.write(f"{weights}\n")
+        file.write(f"{error}\n\n")
     
+    print(f"{bold}Evolution complete!{endbold}")
+
     return None
 
 def genome_to_hashable(genome):
@@ -309,15 +315,18 @@ def main():
                     print(f"  Diversity: {diversity}/{len(evaluated_individuals)}")
                     print(f"  Mdn error: {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
                     best_individual = min(evaluated_individuals, key=lambda ind: np.mean(ind.error_vector))
-                    layers, _ = genome_extractor(best_individual.genome)
+                    best_layers, best_weights = genome_extractor(best_individual.genome)
                     best_individuals = sorted(evaluated_individuals, key=lambda ind: ind.total_error)[:int(len(evaluated_individuals) * 0.1)]
                     print(f"  Elite M error: {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
-                    print(f"  Best individual: {input_size, layers, output_size}")
+                    print(f"  Best individual: {input_size, best_layers, output_size}")
                     print(f"    M error: {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
                 else:
                     print("  No evaluated individuals in population!")
             else:
                 print("  No individuals in population!")
+
+            if generation == search_config.max_generations - 1:
+                logger(best_layers, best_weights, best_individual.error_vector, len(evaluated_individuals), generation + 1)
         except Exception as e:
             print(f"Error in generation {generation + 1}: {str(e)}")
             continue
