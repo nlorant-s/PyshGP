@@ -1,15 +1,15 @@
 # NeuroPush
-A Competitive Neuroevolution Framework
+*A PushGP Neuroevolution Framework*
 
 ## Motivation
 
 ### What is NeuroPush?
 
-NeuroPush is a neuroevolution framework that utilizes Push Genetic Programming (PushGP) to discover optimal neural network architectures. Neural networks are represented by Push integer and float stacks, offering a versatile and extensive search space.
+NeuroPush is a neuroevolution framework that utilizes Push Genetic Programming (PushGP) to discover optimal neural network architectures. With NeuroPush, neural networks are represented by Push integer and float stacks, offering a versatile and extensive search space.
 
 ### Why NeuroPush?
 
-The Push Language provides state-of-the-art genetic programming capabilities. It utilizes stochastic (typically evolutionary) search methods to intelligently search the space of programs. The fundamental output is a program written in the Turing complete Push language, which is then initialized as a neural network. Utilizing Push, one of the most powerful "general program synthesis" frameworks, may prove to be advantageous for neuroevolution.
+The Push Language provides state-of-the-art genetic programming capabilities. It utilizes stochastic (typically evolutionary) search methods to intelligently search the space of programs. The fundamental output is a program written in the Turing complete Push language, which is then initialized and evaluated as a neural network. Utilizing Push, one of the most powerful "general program synthesis" frameworks, may prove to be advantageous for neuroevolution.
 
 ### Goals of NeuroPush
 
