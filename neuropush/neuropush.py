@@ -1,7 +1,7 @@
-from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation
+from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Cloning
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
 from neural_network import NeuralNetwork, visualize_network
-from neuromutations import NullMutation, SlightMutation
+from neuromutations import NullMutation
 from pyshgp.push.instruction_set import InstructionSet
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
@@ -16,17 +16,17 @@ import numpy as np
 import random
 
 # INITIALIZATION CONSTANTS
-population_size = 200
-max_generations = 30
+population_size = 10
+max_generations = 3
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
 MAX_WEIGHT_VALUE = 1.0
-MAX_HIDDEN_LAYERS = 3
+MAX_HIDDEN_LAYERS = 6
 MIN_HIDDEN_LAYERS = 0
-NUM_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
-TOTAL_GENES = MAX_HIDDEN_LAYERS + NUM_WEIGHTS
-print_genomes = False
+MAX_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
+TOTAL_GENES = MAX_HIDDEN_LAYERS + MAX_WEIGHTS
+print_genomes = True
 show_network = False
 input_size = 4
 output_size = 1
@@ -35,6 +35,9 @@ bold = '\033[1m'
 endbold = '\033[0m'
 
 # XOR dataset
+simple_X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+simple_y = np.array([[0], [1], [1], [0]])
+
 X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
                 [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
                 [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1],
@@ -42,33 +45,53 @@ X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
 y = np.array([[0], [1], [1], [0], [1], [0], [0], [1],
                 [1], [0], [0], [1], [0], [1], [1], [0]])
 
+# temporary fix to avoid evaluating genomes with too many layers or weights
+def truncate_genome(layers, weights):
+    layers = layers[:min(MAX_HIDDEN_LAYERS, len(layers))] # there will be many extra genomes but no errors
+    weights = weights[:min(MAX_WEIGHTS, len(weights))]
+    return layers, weights
+
 def fitness_eval(architecture, weights, X, y):
+
+    architecture, weights = truncate_genome(architecture, weights)
+
     try:
         all_layers = [input_size] + architecture + [output_size]
         network = NeuralNetwork(all_layers, weights)
         if show_network:
             visualize_network(network, 'show')
 
-        # for i in range(len(X)):
-        #     prediction = network.predict(X[i])
-        #     # Calculate mean squared error
-        #     mse = np.mean((prediction - y[i]) ** 2)
-        #     # Calculate binary cross-entropy loss
-        #     bce = -np.mean(y[i] * np.log(prediction) + (1 - y[i]) * np.log(1 - prediction))
-
         predictions = network.predict(X)
 
-        # Calculate mean squared error
-        mse = np.mean((predictions - y) ** 2)
-        # Calculate binary cross-entropy loss
-        bce = -np.mean(y * np.log(predictions) + (1 - y) * np.log(1 - predictions))
+        # Calculate individual errors for each data point
+        individual_errors = []
+        for i in range(len(X)):
+            # Calculate binary cross-entropy loss for each data point
+            bce = -y[i] * np.log(predictions[i]) - (1 - y[i]) * np.log(1 - predictions[i])
+            individual_errors.append(bce)
 
-        # Return as a 2d numpy array
-        return np.array([bce])  # Return as a 2D numpy array with one element
+        # Return as a numpy array
+        return np.array(individual_errors)
 
     except Exception as e:
-        # print(f"Error in fitness evaluation: {str(e)}")
+        print(f"Error in fitness evaluation: {str(e)}")
         return None
+
+def variation_strategy(spawner):
+    variation_strategy = VariationStrategy()
+    # variation_strategy.add(NullMutation(), 0.9)
+    # variation_strategy.add(IntMutation(), 1)
+    # variation_strategy.add(FloatMutation(), 0.5)
+    
+    variation_strategy.add(AdditionMutation(addition_rate=0.2), 0.4)
+    variation_strategy.add(DeletionMutation(deletion_rate=0.1), 0.3) # not a bad idea to track if an individual has been mutated
+    #  are these producing non-literal genes?
+
+    variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=10), 0.3)
+    # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.2)
+    # variation_strategy.add(Cloning(), 0.1)
+    
+    return variation_strategy
 
 class CustomSearch(SearchAlgorithm):
     def __init__(self, config, variation_strategy):
@@ -97,7 +120,7 @@ class CustomSearch(SearchAlgorithm):
         total_size = len(self.population) - len(best_individuals)
         random_size = int(total_size * 0.2)  # 20% random
         remaining_size = total_size # - random_size
-        lexicase_size = remaining_size // 2  # Split remaining evenly between lexicase and tournament
+        lexicase_size = remaining_size # // 2  # Split remaining evenly between lexicase and tournament
         tournament_size = remaining_size # - lexicase_size
 
         # downsize tournament size if necessary
@@ -105,15 +128,15 @@ class CustomSearch(SearchAlgorithm):
 
         parents_lexicase = self.lexicase_selector.select(valid_individuals, n=lexicase_size)
         parents_tournament = self.tournament_selector.select(valid_individuals, n=tournament_size)
-        randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), NUM_WEIGHTS) for _ in range(random_size)]
-        parents = parents_tournament # + parents_lexicase # + randomly_generated
+        randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), MAX_WEIGHTS) for _ in range(random_size)]
+        parents = parents_lexicase
         
         # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
 
         # Debugging to ensure selection with respect to error vectors
-        # print("Selected parents error vectors:")
-        # for parent in parents_lexicase[:3] + parents_tournament[:2]:  # Print a few from each selection method
-        #     print(f"  {parent.error_vector:.4f}")
+        # print("Lexicase parents error vectors:")
+        # for parent in parents:  # Print a few from each selection method
+        #     print(f"  {print_genome(parent.genome)}")
 
         children = best_individuals
 
@@ -129,8 +152,9 @@ class CustomSearch(SearchAlgorithm):
         for _ in range(len(self.population) - len(best_individuals)):
             op = np.random.choice(self.variation_strategy.elements)
             num_parents = op.num_parents
-            selected_parents = random.sample(parents, num_parents)
-            child_genome = op.produce([p.genome for p in selected_parents], self.config.spawner) # not using selected_parents
+            selected_parents = random.sample(parents, num_parents) # is this problematic? is it needed?
+            # print(f"  {len(selected_parents)} parents selected, {len(set(id(selected_parent) for selected_parent in parents))} unique")
+            child_genome = op.produce([p.genome for p in parents], self.config.spawner) # not using selected_parents
             if print_genomes:
                 print(print_genome(child_genome))
             child = Individual(child_genome, self.config.signature)
@@ -142,7 +166,7 @@ class CustomSearch(SearchAlgorithm):
             architecture, weights = genome_extractor(child.genome)
             error = fitness_eval(architecture, weights, X, y)
             if error is not None:
-                child.error_vector = np.array([error])
+                child.error_vector = error
             else:
                 child.error_vector = None
 
@@ -178,6 +202,8 @@ def genome_extractor(genome):
         else:
             print(f"Error: Unexpected gene type {type(gene)}")
 
+    layers, weights = truncate_genome(layers, weights)
+
     return layers, weights
 
 # Display the genomes architecture and number of weights in the terminal
@@ -192,8 +218,10 @@ def print_genome(genome):
                 float_values.append(f"{gene.value:.4f}")
     int_values.append(str(output_size))
     layers = '-'.join(int_values)
-    weights = {float(value) for value in float_values}
+    weights = [float(value) for value in float_values]
     num_weights = len(weights)
+
+    layers, weights = truncate_genome(layers, weights)
     
     return f"{layers}\n{num_weights}\n"
 
@@ -227,43 +255,28 @@ def main():
         erc_generators=[layer_size_generator, weights_generator],
     )
 
-    def variation_strategy(spawner):
-        variation_strategy = VariationStrategy()
-        variation_strategy.add(NullMutation(), 0)
-        variation_strategy.add(SlightMutation(), 0)
-        
-        # Fine-grained mutation operators
-        variation_strategy.add(AdditionMutation(), 0.2)
-        variation_strategy.add(DeletionMutation(), 0.2) # not a bad idea to track if an individual has been mutated
-        #  are these producing non-literal genes?
+    try:
+        # Create variation operator
+        global variation_strategy
+        variation_strategy = variation_strategy(spawner)    
 
-        # Crossover operator
-        # variation_strategy.add(Alternation(alternation_rate=0.01, alignment_deviation=5), 0.2)
-        
+        # Create search configuration
+        search_config = SearchConfiguration(
+            signature=None,  # not used atm
+            evaluator=None,  # not used atm
+            spawner=spawner,
+            population_size=population_size,
+            max_generations=max_generations,
+            initial_genome_size=(TOTAL_GENES, TOTAL_GENES + 1),
+            simplification_steps=0,
+            error_threshold=0.0,
+            selection="lexicase",
+        )
 
-        # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.2)
-        # variation_strategy.add(Cloning(), 0.1)
-        
-        return variation_strategy
-
-    # Create variation operator
-    variation_strategy = variation_strategy(spawner)    
-
-    # Create search configuration
-    search_config = SearchConfiguration(
-        signature=None,  # not used atm
-        evaluator=None,  # not used atm
-        spawner=spawner,
-        population_size=population_size,
-        max_generations=max_generations,
-        initial_genome_size=(TOTAL_GENES, TOTAL_GENES + 1),
-        simplification_steps=0,
-        error_threshold=0.0,
-        selection="lexicase",
-    )
-
-    # Create custom search
-    custom_search = CustomSearch(search_config, variation_strategy)
+        # Create custom search
+        custom_search = CustomSearch(search_config, variation_strategy)
+    except Exception as e:
+        print(f"Error in CustomSearch initialization: {str(e)}")
 
     # Initialize the population
     population = []
@@ -278,7 +291,7 @@ def main():
             for _ in range(search_config.population_size):
                 HIDDEN_LAYERS = np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1)
                 # HIDDEN_LAYERS = 0
-                genome = custom_spawn_genome(HIDDEN_LAYERS, NUM_WEIGHTS)
+                genome = custom_spawn_genome(HIDDEN_LAYERS, MAX_WEIGHTS)
                 if print_genomes:
                     print(print_genome(genome))
                 individual = Individual(genome, search_config.signature)
@@ -294,30 +307,35 @@ def main():
             # print(f"Architecture: {architecture}")
             error = fitness_eval(architecture, weights, X, y)
             if error is not None:
-                individual.error_vector = np.array([error])
+                individual.error_vector = error
             else:
                 individual.error_vector = None
             # to log error vector
-                
+    
     # Evolution loop
     for generation in range(search_config.max_generations):
-        evolve()
-        # Print generation statistics
-        print(f"Generation {generation + 1} Stats:")
-        if len(custom_search.population) > 0:
-            evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
-            if evaluated_individuals:
-                print(f"  Evaluated: {len(evaluated_individuals)}/{len(custom_search.population)}")
-                print(f"  Median error: {bold}{np.median([ind.total_error for ind in evaluated_individuals]):.2f}{endbold}")
-                best_individual = min(evaluated_individuals, key=lambda ind: ind.total_error)
-                layers, _ = genome_extractor(best_individual.genome)
-                print(f"  Best architecture: {input_size} {layers} {output_size}")
-                print(f"    Error: {bold}{min(ind.total_error for ind in evaluated_individuals):.2f}{endbold}\n")
+        try:
+            evolve()
+            # Print generation statistics
+            print(f"Generation {generation + 1} Stats:")
+            if len(custom_search.population) > 0:
+                evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
+                if evaluated_individuals:
+                    print(f"  Evaluated: {len(evaluated_individuals)}/{len(custom_search.population)}")
+                    print(f"  Mdn error: {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
+                    best_individual = min(evaluated_individuals, key=lambda ind: np.mean(ind.error_vector))
+                    layers, _ = genome_extractor(best_individual.genome)
+                    best_individuals = sorted(evaluated_individuals, key=lambda ind: ind.total_error)[:int(len(evaluated_individuals) * 0.1)]
+                    print(f"  Elite M error: {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
+                    print(f"  Best architecture: {input_size, layers, output_size}")
+                    print(f"    Error: {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
+                else:
+                    print("  No evaluated individuals in population!")
             else:
-                print("  No evaluated individuals in population!")
-        else:
-            print("  No individuals in population!")
-
+                print("  No individuals in population!")
+        except Exception as e:
+            print(f"Error in generation {generation + 1}: {str(e)}")
+            continue
 
 if __name__ == '__main__':
     freeze_support()

@@ -8,19 +8,33 @@ class NeuralNetwork:
         self.weights = []
         self.biases = []
         
+        # print(f"Initializing network with layer sizes: {layer_sizes}")
+        # print(f"Total flattened weights: {len(flattened_weights)}")
+        
         index = 0
         for i in range(1, self.num_layers):
             weight_matrix_size = layer_sizes[i] * layer_sizes[i-1]
             bias_vector_size = layer_sizes[i]
             
+            # print(f"Layer {i}: Weight matrix size: {weight_matrix_size}, Bias vector size: {bias_vector_size}")
+            
+            # if index + weight_matrix_size > len(flattened_weights):
+            #     raise ValueError(f"Not enough weights for layer {i}. Need {weight_matrix_size}, but only {len(flattened_weights) - index} left.")
+            
             weight_matrix = np.array(flattened_weights[index:index+weight_matrix_size]).reshape(layer_sizes[i], layer_sizes[i-1])
             index += weight_matrix_size
+            
+            # if index + bias_vector_size > len(flattened_weights):
+            #     raise ValueError(f"Not enough weights for bias in layer {i}. Need {bias_vector_size}, but only {len(flattened_weights) - index} left.")
             
             bias_vector = np.array(flattened_weights[index:index+bias_vector_size]).reshape(layer_sizes[i], 1)
             index += bias_vector_size
             
             self.weights.append(weight_matrix)
             self.biases.append(bias_vector)
+        
+        # if index < len(flattened_weights):
+        #     print(f"Warning: {len(flattened_weights) - index} unused weights")
     
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
@@ -39,17 +53,22 @@ class NeuralNetwork:
             np.ndarray: Output of the network with shape (n_samples, n_outputs).
         """
         a = X
+
         ''' No last layer sigmoid
         for weight, bias in zip(self.weights, self.biases):
             a = self.relu(np.dot(a, weight.T) + bias.T)
         '''
-        for i, (weight, bias) in enumerate(zip(self.weights, self.biases)):
-            z = np.dot(a, weight.T) + bias.T
-            if i == len(self.weights) - 1:  # Last layer
-                a = self.sigmoid(z)
-            else:
-                a = self.relu(z)
-        return a
+        try:
+            for i, (weight, bias) in enumerate(zip(self.weights, self.biases)):
+                z = np.dot(a, weight.T) + bias.T
+                if i == len(self.weights) - 1:  # Last layer
+                    a = self.sigmoid(z)
+                else:
+                    a = self.relu(z)
+            return a
+        except Exception as e:
+            print("predict() error:", e)
+            return None
 
 def visualize_network(network, display='hide'):
     if display == 'show':
