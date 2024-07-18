@@ -1,10 +1,10 @@
-from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Cloning
 from neuromutations import NullMutation, FloatReplacement, IntReplacement
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
 from neural_network import NeuralNetwork, visualize_network
 from pyshgp.push.instruction_set import InstructionSet
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
+from pyshgp.gp.variation import VariationStrategy
 from pyshgp.push.types import PushFloat, PushInt
 from pyshgp.gp.individual import Individual
 from pyshgp.gp.population import Population
@@ -17,17 +17,18 @@ import random
 import os
 
 # INITIALIZATION CONSTANTS
-population_size = 300
+population_size = 500
 max_generations = 20
+print_genomes = False
+
+MAX_HIDDEN_LAYERS = 3
+MIN_HIDDEN_LAYERS = 0
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
 MAX_WEIGHT_VALUE = 1.0
-MAX_HIDDEN_LAYERS = 0
-MIN_HIDDEN_LAYERS = 0
 MAX_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
 TOTAL_GENES = MAX_HIDDEN_LAYERS + MAX_WEIGHTS
-print_genomes = False
 show_network = False
 input_size = 4
 output_size = 1
@@ -83,11 +84,6 @@ def variation_strategy(spawner):
 
 class CustomSearch(SearchAlgorithm):
     def __init__(self, config, variation_strategy):
-        """
-        40% lexicase selection
-        40% tournament selection
-        20% random generations
-        """
         super().__init__(config)
         self.variation_strategy = variation_strategy
         self.lexicase_selector = Lexicase(epsilon=True)
@@ -97,6 +93,7 @@ class CustomSearch(SearchAlgorithm):
     def step(self):
         """
         Evolve the population by selecting parents and producing children.
+        See
         """
         # Filter out individuals with invalid error vectors
         valid_individuals = Population([ind for ind in self.population if np.isfinite(ind.error_vector).all() and len(ind.error_vector) > 0])
@@ -106,8 +103,8 @@ class CustomSearch(SearchAlgorithm):
 
         # Adjust selection sizes based on the number of valid individuals
         total_size = len(self.population) - len(best_individuals)
-        random_size = int(total_size * 0.2)  # 20% random
-        remaining_size = total_size # - random_size
+        random_size = int(total_size * 0.3)
+        remaining_size = total_size - random_size
         lexicase_size = remaining_size // 2  # Split remaining evenly between lexicase and tournament
         tournament_size = remaining_size - lexicase_size
 
@@ -117,8 +114,9 @@ class CustomSearch(SearchAlgorithm):
         parents_lexicase = self.lexicase_selector.select(valid_individuals, n=lexicase_size)
         parents_tournament = self.tournament_selector.select(valid_individuals, n=tournament_size)
         randomly_generated = [custom_spawn_genome(np.random.randint(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS + 1), MAX_WEIGHTS) for _ in range(random_size)]
+        random_parents = [Individual(genome, self.config.signature) for genome in randomly_generated]
         parents = parents_lexicase + parents_tournament
-        
+
         # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
 
         # Debugging to ensure selection with respect to error vectors
@@ -126,7 +124,9 @@ class CustomSearch(SearchAlgorithm):
         # for parent in parents:  # Print a few from each selection method
         #     print(f"  {print_genome(parent.genome)}")
 
-        children = best_individuals
+        children = best_individuals + random_parents
+
+        print(f"{len(best_individuals)} elite, {len(random_parents)} random, {len(parents_lexicase)} lexicase, {len(parents_tournament)} tournament")
 
         if print_genomes:
             print(f"\n{bold}GENERATION {self.num_gen}{endbold}")
@@ -137,7 +137,7 @@ class CustomSearch(SearchAlgorithm):
                 print("*last generation best individual")
                 print(print_genome(ind.genome))
 
-        for _ in range(len(self.population) - len(best_individuals)):
+        for _ in range(len(self.population) - len(best_individuals) - len(random_parents)):
             op = np.random.choice(self.variation_strategy.elements)
             num_parents = op.num_parents
             selected_parents = random.sample(parents, num_parents) # is this problematic? is it needed?
@@ -319,7 +319,7 @@ def main():
                     best_layers, best_weights = genome_extractor(best_individual.genome)
                     best_individuals = sorted(evaluated_individuals, key=lambda ind: ind.total_error)[:int(len(evaluated_individuals) * 0.1)]
                     print(f"  Diversity        {diversity}/{len(evaluated_individuals)}")
-                    print(f"  Best             {input_size} {best_layers} {output_size}")
+                    print(f"  Best network     {input_size} {best_layers} {output_size}")
                     print(f"  Median error     {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
                     print(f"  Elite error      {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
                     print(f"  Best error       {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
