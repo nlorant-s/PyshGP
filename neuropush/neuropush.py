@@ -1,7 +1,7 @@
 from pyshgp.gp.variation import VariationStrategy, AdditionMutation, DeletionMutation, Alternation, Cloning
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
 from neural_network import NeuralNetwork, visualize_network
-from neuromutations import NullMutation
+from neuromutations import NullMutation, FloatReplacement, IntReplacement
 from pyshgp.push.instruction_set import InstructionSet
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
@@ -16,17 +16,17 @@ import numpy as np
 import random
 
 # INITIALIZATION CONSTANTS
-population_size = 10
-max_generations = 3
+population_size = 600
+max_generations = 30
 MIN_LAYER_SIZE = 1
 MAX_LAYER_SIZE = 16
 MIN_WEIGHT_VALUE = -1.0
 MAX_WEIGHT_VALUE = 1.0
-MAX_HIDDEN_LAYERS = 6
+MAX_HIDDEN_LAYERS = 3
 MIN_HIDDEN_LAYERS = 0
 MAX_WEIGHTS = MAX_LAYER_SIZE**2 * MAX_HIDDEN_LAYERS + MAX_LAYER_SIZE
 TOTAL_GENES = MAX_HIDDEN_LAYERS + MAX_WEIGHTS
-print_genomes = True
+print_genomes = False
 show_network = False
 input_size = 4
 output_size = 1
@@ -45,16 +45,7 @@ X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
 y = np.array([[0], [1], [1], [0], [1], [0], [0], [1],
                 [1], [0], [0], [1], [0], [1], [1], [0]])
 
-# temporary fix to avoid evaluating genomes with too many layers or weights
-def truncate_genome(layers, weights):
-    layers = layers[:min(MAX_HIDDEN_LAYERS, len(layers))] # there will be many extra genomes but no errors
-    weights = weights[:min(MAX_WEIGHTS, len(weights))]
-    return layers, weights
-
 def fitness_eval(architecture, weights, X, y):
-
-    architecture, weights = truncate_genome(architecture, weights)
-
     try:
         all_layers = [input_size] + architecture + [output_size]
         network = NeuralNetwork(all_layers, weights)
@@ -80,16 +71,8 @@ def fitness_eval(architecture, weights, X, y):
 def variation_strategy(spawner):
     variation_strategy = VariationStrategy()
     # variation_strategy.add(NullMutation(), 0.9)
-    # variation_strategy.add(IntMutation(), 1)
-    # variation_strategy.add(FloatMutation(), 0.5)
-    
-    variation_strategy.add(AdditionMutation(addition_rate=0.2), 0.4)
-    variation_strategy.add(DeletionMutation(deletion_rate=0.1), 0.3) # not a bad idea to track if an individual has been mutated
-    #  are these producing non-literal genes?
-
-    variation_strategy.add(Alternation(alternation_rate=0.1, alignment_deviation=10), 0.3)
-    # variation_strategy.add(Genesis(size=(TOTAL_GENES, TOTAL_GENES + 1)), 0.2)
-    # variation_strategy.add(Cloning(), 0.1)
+    variation_strategy.add(IntReplacement(rate=0.5), 1)
+    variation_strategy.add(FloatReplacement(rate=0.5), 1)
     
     return variation_strategy
 
@@ -202,8 +185,6 @@ def genome_extractor(genome):
         else:
             print(f"Error: Unexpected gene type {type(gene)}")
 
-    layers, weights = truncate_genome(layers, weights)
-
     return layers, weights
 
 # Display the genomes architecture and number of weights in the terminal
@@ -220,8 +201,6 @@ def print_genome(genome):
     layers = '-'.join(int_values)
     weights = [float(value) for value in float_values]
     num_weights = len(weights)
-
-    layers, weights = truncate_genome(layers, weights)
     
     return f"{layers}\n{num_weights}\n"
 
@@ -238,6 +217,9 @@ def logger(logged):
         file.save(f'/logs/{filename}')
     
     return None
+
+def genome_to_hashable(genome):
+    return tuple((gene.push_type, gene.value) for gene in genome if isinstance(gene, Literal))
 
 def main():
     print(f"{bold}Beginning evolution{endbold}")
@@ -317,18 +299,21 @@ def main():
         try:
             evolve()
             # Print generation statistics
-            print(f"Generation {generation + 1} Stats:")
+            print(f"{bold}Generation {generation + 1}:{endbold}")
             if len(custom_search.population) > 0:
                 evaluated_individuals = [ind for ind in custom_search.population if ind.error_vector is not None]
                 if evaluated_individuals:
-                    print(f"  Evaluated: {len(evaluated_individuals)}/{len(custom_search.population)}")
+                    # Calculate diversity
+                    unique_genomes = set(genome_to_hashable(ind.genome) for ind in evaluated_individuals)
+                    diversity = len(unique_genomes)
+                    print(f"  Diversity: {diversity}/{len(evaluated_individuals)}")
                     print(f"  Mdn error: {bold}{np.median([np.mean(ind.error_vector) for ind in evaluated_individuals]):.2f}{endbold}")
                     best_individual = min(evaluated_individuals, key=lambda ind: np.mean(ind.error_vector))
                     layers, _ = genome_extractor(best_individual.genome)
                     best_individuals = sorted(evaluated_individuals, key=lambda ind: ind.total_error)[:int(len(evaluated_individuals) * 0.1)]
                     print(f"  Elite M error: {bold}{np.mean([np.mean(ind.error_vector) for ind in best_individuals]):.2f}{endbold}")
-                    print(f"  Best architecture: {input_size, layers, output_size}")
-                    print(f"    Error: {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
+                    print(f"  Best individual: {input_size, layers, output_size}")
+                    print(f"    M error: {bold}{np.mean(best_individual.error_vector):.2f}{endbold}\n")
                 else:
                     print("  No evaluated individuals in population!")
             else:

@@ -10,7 +10,8 @@ from pyshgp.utils import DiscreteProbDistrib, instantiate_using
 from abc import ABC, abstractmethod
 from typing import Sequence, Union
 import math
-from numpy.random import random, choice
+from numpy.random import choice
+import random
 
 class NullMutation(LiteralMutation):
     def __init__(self):
@@ -20,56 +21,52 @@ class NullMutation(LiteralMutation):
         new_value = literal.value
         return Literal(value=new_value, push_type=PushFloat)
 
-class IntMutation(VariationOperator):
-    """Mutates the value of one PushInt literal in the genome.
-
-    Parameters
-    ----------
-    rate : float
-        The probability of applying the mutation to a given PushInt literal.
-        Default is 0.1.
-
-    Attributes
-    ----------
-    rate : float
-        The probability of applying the mutation to a given PushInt literal.
-    num_parents : int
-        Number of parent Genomes the operator needs to produce a child
-        Individual.
+class IntReplacement(VariationOperator):
     """
-
-    def __init__(self, rate: float = 0.1):
+    Mutation operator that has a chance of mutating a PushInt literal.
+    """
+    
+    def __init__(self, rate=0.2):
         super().__init__(1)
         self.rate = rate
-
-    @tap
-    def produce(self, parents: Sequence[Genome], spawner: GeneSpawner) -> Genome:
-        """Produce a child Genome by mutating one PushInt literal.
-
-        Parameters
-        ----------
-        parents : Sequence[Genome]
-            A list containing a single parent Genome.
-        spawner : GeneSpawner
-            A GeneSpawner that can be used to produce new genes (aka Atoms).
-
-        Returns
-        -------
-        Genome
-            A new Genome with potentially one mutated PushInt literal.
-        """
-        super().produce(parents, spawner)
-        self.checknum_parents(parents)
-        new_genome = Genome()
-        mutated = False
+    
+    def produce(self, parents, spawner):
+        parent = parents[0]
+        child = []
         
-        for atom in parents[0]:
-            if isinstance(atom, Literal) and atom.push_type == PushType.INT and random() < self.rate and not mutated:
-                new_value = spawner.random_int()
-                new_atom = Literal(new_value, PushType.INT)
-                new_genome = new_genome.append(new_atom)
-                mutated = True
+        for gene in parent:
+            if isinstance(gene, Literal) and gene.push_type == PushInt:
+                new_value = int(max(1, min(16, random.gauss(gene.value, 3))))
+                if random.random() < self.rate:
+                    child.append(Literal(value=new_value, push_type=PushInt))
+                else:
+                    child.append(gene)
             else:
-                new_genome = new_genome.append(atom)
+                child.append(gene)
         
-        return new_genome
+        return child
+
+class FloatReplacement(VariationOperator):
+    """
+    Mutation operator that has a chance of mutating a PushFloat literal.
+    """
+    
+    def __init__(self, rate=0.5):
+        super().__init__(1)
+        self.rate = rate
+    
+    def produce(self, parents, spawner):
+        parent = parents[0]
+        child = []
+        
+        for gene in parent:
+            if isinstance(gene, Literal) and gene.push_type == PushFloat:
+                new_value = max(-0.99, min(0.99, random.gauss(gene.value, 0.5)))
+                if random.random() < self.rate:
+                    child.append(Literal(value=new_value, push_type=PushFloat))
+                else:
+                    child.append(gene)
+            else:
+                child.append(gene)
+        
+        return child
