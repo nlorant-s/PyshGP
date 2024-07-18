@@ -13,7 +13,7 @@ The Push Language provides state-of-the-art genetic programming capabilities. It
 
 ### Goals of NeuroPush
 
-NeuroPush aims to optimize neural networks in complex search spaces, with a specific interest in metacognition and general intelligence. Development of NeuroPush is still in progress. Research on NeuroPush may be conducted in the future.
+NeuroPush aims to optimize neural networks in complex search spaces, with a specific interest in metacognition and general intelligence. Development of NeuroPush is still in progress, and research on NeuroPush may be conducted in the future.
 
 ## PyshGP
 
