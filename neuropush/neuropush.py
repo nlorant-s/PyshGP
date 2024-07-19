@@ -17,8 +17,8 @@ import random
 import os
 
 # INITIALIZATION CONSTANTS
-population_size = 500
-max_generations = 20
+population_size = 50
+max_generations = 5
 print_genomes = False
 
 MAX_HIDDEN_LAYERS = 3
@@ -126,7 +126,17 @@ class CustomSearch(SearchAlgorithm):
 
         children = best_individuals + random_parents
 
-        print(f"{len(best_individuals)} elite, {len(random_parents)} random, {len(parents_lexicase)} lexicase, {len(parents_tournament)} tournament")
+        unique_elite_genomes = set(genome_to_hashable(ind.genome) for ind in best_individuals)
+        unique_random_genomes = set(genome_to_hashable(ind.genome) for ind in random_parents)
+        unique_lexicase_genomes = set(genome_to_hashable(ind.genome) for ind in parents_lexicase)
+        unique_tournament_genomes = set(genome_to_hashable(ind.genome) for ind in parents_tournament)
+
+        print(f"{bold}Parent diversity:{endbold}")
+        print(f"  Elite            {len(unique_elite_genomes)}/{len(best_individuals)}")
+        print(f"  Random           {len(unique_random_genomes)}/{len(random_parents)}")
+        print(f"  Lexicase         {len(unique_lexicase_genomes)}/{len(parents_lexicase)}")
+        print(f"  Tournament       {len(unique_tournament_genomes)}/{len(parents_tournament)}")
+
 
         if print_genomes:
             print(f"\n{bold}GENERATION {self.num_gen}{endbold}")
@@ -327,17 +337,19 @@ def main():
                     print("  No evaluated individuals in population!")
             else:
                 print("  No individuals in population!")
+            
+            nn = NeuralNetwork([input_size] + best_layers + [output_size], best_weights)
+            if np.mean((nn.predict(X) > 0.5) == y) > 0.9:
+                logger(best_layers, best_weights, best_individual.error_vector, len(evaluated_individuals), generation + 1)
 
             if generation == search_config.max_generations - 1:
-                logger(best_layers, best_weights, best_individual.error_vector, len(evaluated_individuals), generation + 1)
-                nn = NeuralNetwork([input_size] + best_layers + [output_size], best_weights)
                 visualize_network(nn, 'show')
                 # for i in range(len(X)):
                     # print(f"Input: {X[i]} | Target: {y[i]} | Prediction: {nn.predict(X[i])} | Error: {best_individual.error_vector[i]}")
                 print(f"{bold}Accuracy: {np.mean((nn.predict(X) > 0.5) == y) * 100}%{endbold}")
 
         except Exception as e:
-            print(f"Error in generation {generation + 1}: {str(e)}")
+            print(f"evolution loop error: {str(e)}")
             continue
 
 if __name__ == '__main__':
