@@ -18,8 +18,8 @@ import os
 from functools import lru_cache
 
 # INITIALIZATION CONSTANTS
-population_size = 200
-max_generations = 5
+population_size = 300
+max_generations = 20
 print_genomes = False
 
 MAX_HIDDEN_LAYERS = 3
@@ -57,8 +57,8 @@ def cached_fitness_eval(architecture, weights):
 def fitness_eval(architecture, weights, X, y):
     try:
         architecture = list(architecture)
-        all_layers = [input_size] + architecture + [output_size]
-        network = NeuralNetwork(all_layers, weights)
+        full_layers = [input_size] + architecture + [output_size]
+        network = NeuralNetwork(full_layers, weights)
         if show_network:
             visualize_network(network, 'show')
 
@@ -71,7 +71,6 @@ def fitness_eval(architecture, weights, X, y):
         # Calculate individual errors for each data point
         individual_errors = []
         for i in range(len(X)):
-            # Use mean squared error instead of binary cross-entropy
             mse = np.mean((predictions[i] - y[i])**2)
             individual_errors.append(mse)
 
@@ -126,20 +125,15 @@ class CustomSearch(SearchAlgorithm):
         parents = parents_lexicase + parents_tournament
 
         # print(f"  {len(parents)} parents selected, {len(set(id(parent) for parent in parents))} unique")
-
-        # Debugging to ensure selection with respect to error vectors
-        # print("Lexicase parents error vectors:")
-        # for parent in parents:  # Print a few from each selection method
-        #     print(f"  {print_genome(parent.genome)}")
-
         children = best_individuals + random_parents
 
+        unique_parents = set(genome_to_hashable(ind.genome) for ind in parents)
         unique_elite_genomes = set(genome_to_hashable(ind.genome) for ind in best_individuals)
         unique_random_genomes = set(genome_to_hashable(ind.genome) for ind in random_parents)
         unique_lexicase_genomes = set(genome_to_hashable(ind.genome) for ind in parents_lexicase)
         unique_tournament_genomes = set(genome_to_hashable(ind.genome) for ind in parents_tournament)
 
-        print(f"{bold}Parent diversity:{endbold}")
+        print(f"{bold}Unique parents:{endbold}    {len(unique_parents)}/{len(parents)}")
         print(f"  Elite            {len(unique_elite_genomes)}/{len(best_individuals)}")
         print(f"  Random           {len(unique_random_genomes)}/{len(random_parents)}")
         print(f"  Lexicase         {len(unique_lexicase_genomes)}/{len(parents_lexicase)}")

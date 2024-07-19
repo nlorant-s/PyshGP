@@ -120,6 +120,15 @@ def visualize_network(network, display='hide'):
         plt.show()
 
 if __name__ == "__main__":
-    nn = NeuralNetwork([4, 1], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
-    visualize_network(nn, display='show')
-    print(nn.predict(np.array([[1, 2, 3, 4]])))
+
+    X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
+                [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 1],
+                [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1],
+                [1, 1, 0, 0], [1, 1, 0, 1], [1, 1, 1, 0], [1, 1, 1, 1]])
+    
+    arch = None
+    weights = None
+    nn = NeuralNetwork(arch, weights)
+    # visualize_network(nn, display='show')
+    for x in X:
+        print(nn.predict(np.array([x])), end=' ')
