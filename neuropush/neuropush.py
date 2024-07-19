@@ -1,7 +1,7 @@
 from neuromutations import NullMutation, FloatReplacement, IntReplacement
 from pyshgp.gp.search import SearchAlgorithm, SearchConfiguration
-from neural_network import NeuralNetwork, visualize_network
 from pyshgp.push.instruction_set import InstructionSet
+from networks import NeuralNetwork, visualize_network
 from pyshgp.gp.selection import Lexicase, Tournament
 from pyshgp.push.type_library import PushTypeLibrary
 from pyshgp.gp.variation import VariationStrategy
@@ -15,9 +15,10 @@ from datetime import datetime
 import numpy as np
 import random
 import os
+from functools import lru_cache
 
 # INITIALIZATION CONSTANTS
-population_size = 50
+population_size = 200
 max_generations = 5
 print_genomes = False
 
@@ -47,8 +48,15 @@ X = np.array([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1],
 y = np.array([[0], [1], [1], [0], [1], [0], [0], [1],
                 [1], [0], [0], [1], [0], [1], [1], [0]])
 
+fitness_cache = {}
+
+@lru_cache(maxsize=10000)
+def cached_fitness_eval(architecture, weights):
+    return fitness_eval(architecture, weights, X, y)
+
 def fitness_eval(architecture, weights, X, y):
     try:
+        architecture = list(architecture)
         all_layers = [input_size] + architecture + [output_size]
         network = NeuralNetwork(all_layers, weights)
         if show_network:
@@ -162,7 +170,7 @@ class CustomSearch(SearchAlgorithm):
 
         for child in self.population:
             architecture, weights = genome_extractor(child.genome)
-            error = fitness_eval(architecture, weights, X, y)
+            error = cached_fitness_eval(tuple(architecture), tuple(weights))
             if error is not None:
                 child.error_vector = error
             else:
@@ -241,6 +249,8 @@ def genome_to_hashable(genome):
     return tuple((gene.push_type, gene.value) for gene in genome if isinstance(gene, Literal))
 
 def main():
+    cached_fitness_eval.cache_clear() # Clear the cache before starting a new evolution
+
     print(f"{bold}Beginning evolution{endbold}")
     print(f"Population size: {population_size}, generations: {max_generations}\n")
     # Initialize PyshGP components
@@ -302,6 +312,7 @@ def main():
             population = custom_search.step()
 
         custom_search.population = Population(population)
+
         # Evaluate each individual
         for individual in custom_search.population:
             architecture, weights = genome_extractor(individual.genome)
