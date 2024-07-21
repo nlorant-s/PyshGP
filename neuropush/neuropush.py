@@ -18,7 +18,7 @@ import os
 from functools import lru_cache
 
 # INITIALIZATION CONSTANTS
-population_size = 300
+population_size = 400
 max_generations = 20
 print_genomes = False
 
